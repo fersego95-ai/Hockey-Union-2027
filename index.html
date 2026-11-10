@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Planificación Hockey Unión</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: una sola columna de trabajo. Arriba el macrociclo como cinta de fases,
+   después la grilla categoría × semana (lo que se opera) y debajo el detalle de la semana elegida. */
+:root{
+  --bg:#F2F5F6; --surface:#FFFFFF; --sunk:#E6ECEE; --fg:#10201F; --muted:#55676A; --line:#CDD7DA;
+  --accent:#1D4FA3; --accent2:#D9412A; --accent-fg:#FFFFFF; --warn:#B4381F;
+  --t1:#5E8C8A; --t2:#2F6FB5; --t3:#8A8FA0; --t4:#2E9B62; --t5:#D08A1A; --t6:#D2552F;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1517; --surface:#162225; --sunk:#0A1113; --fg:#E6EEEE; --muted:#93A6A8; --line:#2B3B3F;
+    --accent:#86ABF2; --accent2:#F0694D; --accent-fg:#0A1B3A; --warn:#F08A6E;
+    --t1:#7FB3B0; --t2:#5B9BE0; --t3:#A3A8BA; --t4:#4CC084; --t5:#E6A63C; --t6:#EB7A55;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1517; --surface:#162225; --sunk:#0A1113; --fg:#E6EEEE; --muted:#93A6A8; --line:#2B3B3F;
+  --accent:#86ABF2; --accent2:#F0694D; --accent-fg:#0A1B3A; --warn:#F08A6E;
+  --t1:#7FB3B0; --t2:#5B9BE0; --t3:#A3A8BA; --t4:#4CC084; --t5:#E6A63C; --t6:#EB7A55;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 64px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));
+  display:flex;flex-direction:column;gap:40px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.05}
+h1{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:700;text-transform:uppercase;letter-spacing:.01em}
+h2{font-size:1.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+h3{font-size:1.25rem;font-weight:600}
+p{margin:0}
+.eyebrow{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.14em;font-size:.95rem;color:var(--accent2)}
+.muted{color:var(--muted)}
+.small{font-size:.86rem}
+header.top{display:flex;flex-direction:column;gap:12px}
+.brand{display:flex;align-items:center;gap:16px;min-width:0}
+.crest{flex:none;width:auto;height:84px;background:#FFFFFF;border-radius:8px;padding:4px;border:1px solid var(--line)}
+.brandtxt{display:flex;flex-direction:column;gap:6px;min-width:0}
+@media (max-width:480px){ .crest{height:60px} }
+.toprow{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between}
+.pill{font-size:.8rem;font-weight:600;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--surface);white-space:nowrap}
+.pill.err{color:var(--warn);border-color:var(--warn)}
+.notice{background:var(--surface);border:1px dashed var(--line);border-radius:8px;padding:28px 20px;display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+main{display:flex;flex-direction:column;gap:40px;min-width:0}
+
+/* cinta de fases */
+.strip{display:flex;height:14px;border-radius:3px;overflow:hidden;gap:2px}
+.strip span{display:block;min-width:4px}
+.phases{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px 24px}
+.phase{display:flex;flex-direction:column;gap:4px;min-width:0}
+.phase .head{display:flex;gap:8px;align-items:baseline}
+.chip{flex:none;width:12px;height:12px;border-radius:2px;background:var(--tone);display:inline-block}
+.tone1{--tone:var(--t1)}.tone2{--tone:var(--t2)}.tone3{--tone:var(--t3)}.tone4{--tone:var(--t4)}.tone5{--tone:var(--t5)}.tone6{--tone:var(--t6)}
+.dates{font-variant-numeric:tabular-nums;font-size:.86rem;color:var(--muted)}
+
+/* grilla */
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table.grid{border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+.grid th,.grid td{padding:0;border-bottom:1px solid var(--line)}
+.grid tbody tr:last-child th,.grid tbody tr:last-child td{border-bottom:0}
+.grid th.corner,.grid th.cat{position:sticky;left:0;z-index:2;background:var(--surface);text-align:left;padding:8px 12px;border-right:1px solid var(--line);
+  min-width:118px;max-width:150px;font-weight:600;font-size:.86rem;line-height:1.25}
+.grid th.corner{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-size:.85rem;vertical-align:bottom}
+.grid th.ph{font-family:var(--display);font-weight:600;font-size:.95rem;text-transform:uppercase;letter-spacing:.04em;text-align:left;padding:8px 8px 6px;
+  border-top:4px solid var(--tone);line-height:1.1;vertical-align:top}
+.grid th.wk{min-width:54px;padding:6px 4px;font-weight:500;text-align:center;line-height:1.2}
+.grid th.wk .wn{display:block;font-family:var(--display);font-weight:600;font-size:1rem}
+.grid th.wk .wd{display:block;font-size:.72rem;color:var(--muted);white-space:nowrap}
+.grid th.wk .tag{display:block;font-size:.66rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);height:1em;line-height:1}
+.grid .yr{border-left:2px solid var(--fg)}
+.cell{display:block;width:100%;min-width:54px;height:44px;border:0;margin:0;cursor:pointer;font:600 1.05rem var(--display);color:var(--fg);
+  background:var(--surface);outline-offset:-3px}
+.cell.l1{background:color-mix(in oklab,var(--tone) 12%,var(--surface))}
+.cell.l2{background:color-mix(in oklab,var(--tone) 24%,var(--surface))}
+.cell.l3{background:color-mix(in oklab,var(--tone) 36%,var(--surface))}
+.cell.l4{background:color-mix(in oklab,var(--tone) 48%,var(--surface))}
+.cell.l5{background:color-mix(in oklab,var(--tone) 60%,var(--surface))}
+.cell.l0{color:var(--muted);font-weight:500}
+.cell:hover{outline:2px solid var(--muted)}
+.cell[aria-pressed="true"]{outline:3px solid var(--fg)}
+.cell:focus-visible{outline:3px solid var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.legend .sw{display:inline-flex;gap:2px;vertical-align:middle}
+.legend .sw i{width:16px;height:12px;display:block}
+
+/* editor de semana */
+.editor{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:20px;display:flex;flex-direction:column;gap:18px}
+.edhead{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:flex-start}
+.edhead .t{display:flex;flex-direction:column;gap:4px;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+label.f{display:flex;flex-direction:column;gap:5px;min-width:0}
+label.f>span,.lab{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.1em;font-size:.85rem;color:var(--muted)}
+input[type=text],input[type=date],input[type=number],input[type=email],input[type=password],textarea{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0}
+textarea{min-height:96px;resize:vertical;line-height:1.4}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input:disabled,textarea:disabled{opacity:.75}
+.days{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+button.b{font:600 .88rem var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:7px 12px;cursor:pointer}
+button.b:hover{border-color:var(--muted)}
+button.b.pri{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.b.ico{padding:7px 10px;min-width:36px}
+button.b.danger{color:var(--warn)}
+button.b:disabled{opacity:.4;cursor:default}
+.loads{display:flex;gap:4px}
+.loads button{width:40px;height:36px;font:600 1.1rem var(--display);border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:6px;cursor:pointer}
+.loads button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+.login{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
+.login .err{color:var(--warn);font-size:.88rem;min-height:1.2em}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-size:.88rem;cursor:pointer;text-decoration:underline;text-align:left}
+/* ajustes */
+.settings{display:flex;flex-direction:column;gap:28px}
+.basics{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.list{display:flex;flex-direction:column;gap:10px}
+.prow{display:grid;grid-template-columns:auto minmax(0,2fr) 84px minmax(0,3fr) auto;gap:8px;align-items:center}
+.crow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;max-width:520px}
+.tonebtn{width:30px;height:30px;border-radius:6px;border:1px solid var(--line);background:var(--tone);cursor:pointer}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) 90px auto;gap:8px;align-items:center;max-width:520px}
+/* planteles y tests */
+.tabs{display:flex;flex-wrap:wrap;gap:6px}
+.tab{font:600 .86rem var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer}
+.tab .n{color:var(--muted);font-weight:500;font-variant-numeric:tabular-nums}
+.tab[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.tab[aria-pressed="true"] .n{color:var(--bg)}
+.nav{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line)}
+.nav a{font-family:var(--display);font-weight:600;font-size:1.15rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-decoration:none;padding:8px 14px;border-bottom:3px solid transparent;margin-bottom:-1px}
+.nav a:hover{color:var(--fg)}
+.nav a[aria-current="page"]{color:var(--fg);border-bottom-color:var(--accent2)}
+.nav a:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.view{display:flex;flex-direction:column;gap:40px;min-width:0}
+.roster{display:grid;grid-template-columns:minmax(0,1fr);gap:24px;align-items:start}
+.roster.has-sel{grid-template-columns:minmax(0,300px) minmax(0,1fr)}
+.squads{align-items:start;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:28px 24px;min-width:0}
+.roster.has-sel .squads{grid-template-columns:minmax(0,1fr)}
+.squad{display:flex;flex-direction:column;gap:8px;min-width:0}
+.sqhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%;background:none;border:0;border-bottom:2px solid var(--accent);padding:6px 2px;cursor:pointer;color:var(--fg);text-align:left;font:inherit}
+.sqhead:hover .sqname{color:var(--accent)}
+.sqname{font-family:var(--display);font-weight:600;font-size:1.25rem;line-height:1.1}
+.sqhead .n{white-space:nowrap}
+.sqhead .n{font-family:var(--display);font-weight:600;font-size:1.1rem;color:var(--muted);font-variant-numeric:tabular-nums}
+select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;width:100%;min-width:0}
+.plist{display:flex;flex-direction:column;gap:4px;min-width:0}
+.pbtn{text-align:left;font:500 .95rem var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 12px;cursor:pointer;overflow-wrap:anywhere}
+.pbtn[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.addrow{display:flex;gap:8px}
+.addrow input{flex:1}
+.sheetwrap{overflow-x:auto;border:1px solid var(--line);border-radius:6px}
+table.sheet{border-collapse:collapse;font-variant-numeric:tabular-nums;width:100%}
+.sheet th,.sheet td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+.sheet thead th{font-size:.82rem;font-weight:600;vertical-align:bottom}
+.sheet thead th small{display:block;color:var(--muted);font-weight:500}
+.sheet tbody input[type=text]{width:84px}
+.sheet tbody input[type=date]{width:150px}
+.sheet tfoot th,.sheet tfoot td{border-bottom:0;font-weight:600;font-size:.88rem;color:var(--muted)}
+@media (max-width:760px){ .roster.has-sel{grid-template-columns:minmax(0,1fr)} .roster.has-sel #sheet{order:-1} }
+@media (max-width:760px){
+  .prow{grid-template-columns:auto minmax(0,1fr) 72px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  .prow .goal{grid-column:1 / -1}
+  .prow .acts{grid-column:1 / -1}
+}
+@media (prefers-reduced-motion:no-preference){ .cell,button.b{transition:background-color .12s,border-color .12s} }
+</style>
+
+<script>
+/* ===== Configuración de Firebase: reemplazá estos valores por los de tu proyecto ===== */
+var FIREBASE_CONFIG = {
+  apiKey: "PEGAR_API_KEY",
+  authDomain: "PEGAR.firebaseapp.com",
+  projectId: "PEGAR",
+  storageBucket: "PEGAR.appspot.com",
+  messagingSenderId: "PEGAR",
+  appId: "PEGAR"
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="toprow">
+      <p class="eyebrow">Preparación física · hockey</p>
+      <div class="row"><span id="status" class="pill">Cargando…</span><button type="button" id="logout" class="b" hidden>Salir</button></div>
+    </div>
+    <div class="brand">
+      <img class="crest" src="data:image/jpeg;base64,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" alt="Escudo del club" width="201" height="250">
+      <div class="brandtxt">
+        <h1 id="club">Planificación de hockey</h1>
+        <p id="range" class="muted"></p>
+      </div>
+    </div>
+  </header>
+
+  <div id="notice" class="notice"><p>Cargando el plan…</p></div>
+
+  <main id="app" hidden>
+    <nav class="nav" aria-label="Secciones">
+      <a href="#planteles" id="nav-planteles" data-view="planteles">Planteles</a>
+      <a href="#planificacion" id="nav-planificacion" data-view="planificacion">Planificación</a>
+      <a href="#ajustes" id="nav-ajustes" data-view="ajustes">Ajustes</a>
+    </nav>
+    <div class="view" id="view-planteles">
+    <section id="sec-roster"></section>
+    </div>
+    <div class="view" id="view-planificacion" hidden>
+    <section id="sec-editor"></section>
+    <section id="sec-grid">
+      <div>
+        <h2>Semana a semana</h2>
+        <p class="muted">Tocá una celda para abrir arriba esa semana de esa categoría. El número es la carga planificada.</p>
+      </div>
+      <div class="scroll" id="gridwrap"></div>
+      <div class="legend small muted" id="legend"></div>
+    </section>
+    <section id="sec-phases" aria-label="Fases"></section>
+    </div>
+    <div class="view" id="view-ajustes" hidden>
+    <section id="sec-settings"></section>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+"use strict";
+var DAYS=[["lun","Lunes"],["mar","Martes"],["mie","Miércoles"],["jue","Jueves"],["vie","Viernes"],["sab","Sábado"]];
+var MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+var LOADTXT=["Sin definir","Muy liviana","Liviana","Media","Alta","Muy alta"];
+var db=null,canWrite=true,S={config:null,cats:{}},sel={c:null,w:null},got={config:false,cats:false};
+var timers={},busy={},again={},hadErr=false,edMsg="";
+var pendingImport=null,impMsg="";
+var P={},selP=null,openCat=null,VIEWS=["planteles","planificacion","ajustes"];
+var $=function(s){return document.querySelector(s);};
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function clone(o){return JSON.parse(JSON.stringify(o));}
+function parseD(s){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||"");if(!m)return new Date(Date.UTC(2026,10,9));return new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));}
+function addD(d,n){return new Date(d.getTime()+n*864e5);}
+function fmt(d,y){return d.getUTCDate()+" "+MES[d.getUTCMonth()]+(y?" "+d.getUTCFullYear():"");}
+function nWeeks(p){var k=Math.round(+p.weeks||1);return Math.max(1,Math.min(26,k));}
+function tone(p,i){var t=+p.tone||((i%6)+1);return "tone"+Math.max(1,Math.min(6,t));}
+function weeks(){
+  var out=[],n=0,st=parseD(S.config.start),ph=S.config.phases||[];
+  ph.forEach(function(p,pi){for(var i=0;i<nWeeks(p);i++){out.push({key:p.id+"_"+i,phase:p,pi:pi,i:i,n:n,start:addD(st,n*7)});n++;}});
+  return out;
+}
+function getW(c,k){var d=S.cats[c];var w=d&&d.weeks&&d.weeks[k];return w||{load:0,focus:"",days:{}};}
+function ensureW(c,k){
+  if(!S.cats[c])S.cats[c]={weeks:{}};
+  if(!S.cats[c].weeks)S.cats[c].weeks={};
+  var w=S.cats[c].weeks[k];
+  if(!w)w=S.cats[c].weeks[k]={load:0,focus:"",days:{}};
+  if(!w.days)w.days={};
+  return w;
+}
+function todayIdx(ws){
+  var now=Date.now();
+  for(var i=0;i<ws.length;i++){var a=ws[i].start.getTime();if(now>=a&&now<a+7*864e5)return i;}
+  return -1;
+}
+
+/* ---------- guardado ---------- */
+function setStatus(){
+  var el=$("#status");el.classList.remove("err");
+  if(!db){el.textContent="Sin conexión a los datos";return;}
+  if(!canWrite){el.textContent="Solo lectura";return;}
+  if(hadErr){el.textContent="No se pudo guardar";el.classList.add("err");return;}
+  var pend=Object.keys(timers).some(function(k){return timers[k];})||Object.keys(busy).some(function(k){return busy[k];});
+  el.textContent=pend?"Guardando…":"Guardado";
+}
+function isDirty(k){return !!timers[k]||!!busy[k];}
+function dirty(k){
+  if(!canWrite||!db)return;
+  clearTimeout(timers[k]);
+  timers[k]=setTimeout(function(){timers[k]=null;flush(k);},700);
+  setStatus();
+}
+function flush(k){
+  if(busy[k]){again[k]=true;return;}
+  busy[k]=true;setStatus();
+  var p;
+  try{
+    if(k==="config")p=db.doc("plan/config").set(clone(S.config));
+    else if(k.indexOf("cat:")===0){var id=k.slice(4);p=S.cats[id]?db.doc("cats/"+id).set(clone(S.cats[id])):db.doc("cats/"+id).delete();}
+    else{var pid=k.slice(3);p=P[pid]?db.doc("players/"+pid).set(clone(P[pid])):db.doc("players/"+pid).delete();}
+  }catch(e){p=Promise.reject(e);}
+  p.then(function(){hadErr=false;},function(e){
+    if(e&&e.code==="permission-denied"){canWrite=false;renderAll(true);}
+    else hadErr=true;
+  }).then(function(){
+    busy[k]=false;
+    if(again[k]&&canWrite){again[k]=false;flush(k);}
+    setStatus();
+  });
+}
+
+/* ---------- render ---------- */
+function renderHeader(){
+  var c=S.config,ws=weeks();
+  $("#club").textContent=c.club||"Planificación de hockey";
+  if(ws.length){
+    var a=ws[0].start,b=addD(ws[ws.length-1].start,6);
+    $("#range").textContent=fmt(a,true)+" → "+fmt(b,true)+" · "+ws.length+" semanas · "+(c.cats||[]).length+" categorías";
+  }else $("#range").textContent="";
+}
+function renderPhases(){
+  var ws=weeks(),ph=S.config.phases||[],h='<h2>Fases del macrociclo</h2><div class="strip" aria-hidden="true">';
+  ph.forEach(function(p,i){h+='<span class="'+tone(p,i)+'" style="flex:'+nWeeks(p)+';background:var(--tone)"></span>';});
+  h+='</div><div class="phases">';
+  var n=0,st=parseD(S.config.start);
+  ph.forEach(function(p,i){
+    var k=nWeeks(p),a=addD(st,n*7),b=addD(st,(n+k)*7-1);n+=k;
+    h+='<div class="phase '+tone(p,i)+'"><div class="head"><span class="chip"></span><h3>'+esc(p.name||"Fase sin nombre")+'</h3></div>'+
+       '<p class="dates">'+fmt(a)+" – "+fmt(b,true)+" · "+k+(k===1?" semana":" semanas")+'</p>'+
+       (p.goal?'<p class="small">'+esc(p.goal)+'</p>':'')+'</div>';
+  });
+  h+='</div>';
+  $("#sec-phases").innerHTML=h;
+}
+function fixSel(ws){
+  var cats=S.config.cats||[];
+  if(!cats.some(function(c){return c.id===sel.c;}))sel.c=cats.length?cats[0].id:null;
+  if(!ws.some(function(w){return w.key===sel.w;})){var t=todayIdx(ws);sel.w=ws.length?ws[t<0?0:t].key:null;}
+}
+function renderGrid(){
+  var ws=weeks(),cats=S.config.cats||[],ph=S.config.phases||[];
+  fixSel(ws);
+  var t=todayIdx(ws);
+  var h='<table class="grid"><thead><tr><th class="corner" rowspan="2" scope="col">Categoría</th>';
+  var n=0;
+  ph.forEach(function(p,i){
+    var yr=n>0&&ws[n].start.getUTCFullYear()!==ws[n-1].start.getUTCFullYear();
+    h+='<th class="ph '+tone(p,i)+(yr?" yr":"")+'" colspan="'+nWeeks(p)+'" scope="colgroup">'+esc(p.name||"Fase")+'</th>';n+=nWeeks(p);
+  });
+  h+='</tr><tr>';
+  ws.forEach(function(w,i){
+    var yr=i>0&&w.start.getUTCFullYear()!==ws[i-1].start.getUTCFullYear();
+    w.yr=yr;
+    h+='<th class="wk'+(yr?" yr":"")+'" scope="col"><span class="tag">'+(i===t?"hoy":(yr?w.start.getUTCFullYear():""))+'</span><span class="wn">S'+(i+1)+'</span><span class="wd">'+fmt(w.start)+'</span></th>';
+  });
+  h+='</tr></thead><tbody>';
+  cats.forEach(function(c){
+    h+='<tr><th class="cat" scope="row">'+esc(c.name||"Categoría")+'</th>';
+    ws.forEach(function(w,i){
+      var d=getW(c.id,w.key),l=Math.max(0,Math.min(5,+d.load||0));
+      var on=sel.c===c.id&&sel.w===w.key;
+      h+='<td class="'+(w.yr?"yr":"")+'"><button type="button" class="cell l'+l+" "+tone(w.phase,w.pi)+'" data-c="'+esc(c.id)+'" data-w="'+esc(w.key)+'" aria-pressed="'+on+'" aria-label="'+esc(c.name)+", semana "+(i+1)+", carga "+LOADTXT[l].toLowerCase()+'" title="'+esc(d.focus||"")+'">'+(l||"–")+'</button></td>';
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table>';
+  if(!cats.length||!ws.length)h='<p class="muted" style="padding:20px">Agregá al menos una fase y una categoría en la solapa Ajustes.</p>';
+  $("#gridwrap").innerHTML=h;
+  var lg='<span>Carga:</span>';
+  for(var i=1;i<=5;i++)lg+='<span><b>'+i+'</b> '+LOADTXT[i].toLowerCase()+'</span>';
+  lg+='<span>· El color de la celda es la fase; más intenso, más carga.</span>';
+  $("#legend").innerHTML=lg;
+}
+function renderEditor(){
+  var el=$("#sec-editor"),ws=weeks(),cats=S.config.cats||[];
+  fixSel(ws);
+  var cat=cats.filter(function(c){return c.id===sel.c;})[0],wi=-1;
+  ws.forEach(function(w,i){if(w.key===sel.w)wi=i;});
+  if(!cat||wi<0){el.innerHTML="";return;}
+  var w=ws[wi],d=getW(cat.id,w.key),l=Math.max(0,Math.min(5,+d.load||0)),dis=canWrite?"":" disabled";
+  var h='<h2>La semana</h2><div class="editor"><div class="edhead"><div class="t">'+
+    '<h3>'+esc(cat.name)+' · Semana '+(wi+1)+'</h3>'+
+    '<p class="dates">'+fmt(w.start)+" – "+fmt(addD(w.start,6),true)+'</p>'+
+    '<p class="small '+tone(w.phase,w.pi)+'"><span class="chip"></span> '+esc(w.phase.name||"Fase")+' (semana '+(w.i+1)+' de '+nWeeks(w.phase)+')</p></div>'+
+    '<div class="row"><select id="ed-cat" aria-label="Categoría" style="width:auto;max-width:100%">'+
+    cats.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===cat.id?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select>'+
+    '<button type="button" class="b ico" data-act="prev" aria-label="Semana anterior"'+(wi===0?" disabled":"")+'>◀</button>'+
+    '<button type="button" class="b ico" data-act="next" aria-label="Semana siguiente"'+(wi===ws.length-1?" disabled":"")+'>▶</button></div></div>';
+  h+='<div class="row"><span class="lab">Carga</span><div class="loads" role="group" aria-label="Carga de la semana">';
+  for(var i=1;i<=5;i++)h+='<button type="button" data-load="'+i+'" aria-pressed="'+(l===i)+'" title="'+LOADTXT[i]+'"'+dis+'>'+i+'</button>';
+  h+='</div><span class="small muted">'+LOADTXT[l]+'</span></div>';
+  h+='<label class="f"><span>Objetivo de la semana</span><input type="text" id="f-focus" value="'+esc(d.focus||"")+'" placeholder="Qué se busca esta semana"'+dis+'></label>';
+  h+='<div class="days">';
+  DAYS.forEach(function(x){
+    h+='<label class="f"><span>'+x[1]+'</span><textarea id="d-'+x[0]+'" data-day="'+x[0]+'" placeholder="Sin sesión"'+dis+'>'+esc((d.days&&d.days[x[0]])||"")+'</textarea></label>';
+  });
+  h+='</div>';
+  if(canWrite){
+    h+='<div class="row"><button type="button" class="b" data-act="copy-next"'+(wi===ws.length-1?" disabled":"")+'>Copiar a la semana siguiente</button>'+
+       '<button type="button" class="b" data-act="copy-cats"'+(cats.length<2?" disabled":"")+'>Copiar a todas las categorías</button>'+
+       '<span class="small muted" id="ed-msg" role="status">'+esc(edMsg)+'</span></div>';
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+function renderSettings(){
+  var el=$("#sec-settings"),c=S.config,dis=canWrite?"":" disabled";
+  if(!canWrite){el.innerHTML="";return;}
+  var h='<div><h2>Ajustes</h2><p class="muted">Cambiá nombres, duración de las fases y categorías. La grilla se rearma sola.</p></div><div class="settings">';
+  h+='<div class="basics"><label class="f"><span>Nombre del club</span><input type="text" id="s-club" data-k="club" value="'+esc(c.club||"")+'"></label>'+
+     '<label class="f"><span>Primer lunes del plan</span><input type="date" id="s-start" data-k="start" value="'+esc(c.start||"")+'"></label></div>';
+  h+='<div class="list"><span class="lab">Fases (nombre · semanas · objetivo)</span>';
+  (c.phases||[]).forEach(function(p,i){
+    h+='<div class="prow '+tone(p,i)+'" data-p="'+esc(p.id)+'">'+
+      '<button type="button" class="tonebtn" data-act="tone" aria-label="Cambiar color de la fase" title="Cambiar color"></button>'+
+      '<input type="text" id="ph-'+esc(p.id)+'-name" data-pk="name" value="'+esc(p.name||"")+'" aria-label="Nombre de la fase" placeholder="Nombre de la fase">'+
+      '<input type="number" id="ph-'+esc(p.id)+'-weeks" data-pk="weeks" min="1" max="26" value="'+nWeeks(p)+'" aria-label="Semanas">'+
+      '<input type="text" class="goal" id="ph-'+esc(p.id)+'-goal" data-pk="goal" value="'+esc(p.goal||"")+'" aria-label="Objetivo de la fase" placeholder="Objetivo de la fase">'+
+      '<div class="row acts"><button type="button" class="b ico" data-act="up" aria-label="Subir fase"'+(i===0?" disabled":"")+'>↑</button>'+
+      '<button type="button" class="b ico" data-act="down" aria-label="Bajar fase"'+(i===c.phases.length-1?" disabled":"")+'>↓</button>'+
+      '<button type="button" class="b danger" data-act="del-phase">Quitar</button></div></div>';
+  });
+  h+='<div><button type="button" class="b" data-act="add-phase">Agregar fase</button></div></div>';
+  h+='<div class="list"><span class="lab">Categorías</span>';
+  (c.cats||[]).forEach(function(k){
+    h+='<div class="crow" data-cat="'+esc(k.id)+'"><input type="text" id="cat-'+esc(k.id)+'" data-ck="name" value="'+esc(k.name||"")+'" aria-label="Nombre de la categoría" placeholder="Nombre de la categoría">'+
+       '<button type="button" class="b danger" data-act="del-cat">Quitar</button></div>';
+  });
+  h+='<div><button type="button" class="b" data-act="add-cat">Agregar categoría</button></div></div>';
+  h+='<div class="list"><span class="lab">Tests de la planilla (nombre · unidad)</span>';
+  (c.tests||[]).forEach(function(t){
+    h+='<div class="trow" data-test="'+esc(t.id)+'"><input type="text" id="test-'+esc(t.id)+'-name" data-tk="name" value="'+esc(t.name||"")+'" aria-label="Nombre del test" placeholder="Nombre del test">'+
+       '<input type="text" id="test-'+esc(t.id)+'-unit" data-tk="unit" value="'+esc(t.unit||"")+'" aria-label="Unidad" placeholder="Unidad">'+
+       '<button type="button" class="b danger" data-act="del-test">Quitar</button></div>';
+  });
+  h+='<div><button type="button" class="b" data-act="add-test">Agregar test</button></div></div>';
+  h+='<div class="list"><span class="lab">Datos</span><p class="small muted">Descargá una copia de todo (plan, planteles y tests) o cargá una copia guardada.</p>'+
+     '<div class="row"><button type="button" class="b" data-act="export">Descargar copia de seguridad</button></div>'+
+     '<label class="f" style="max-width:520px"><span>Cargar una copia (.json)</span><input type="file" id="imp-file" accept=".json,application/json"></label>'+
+     (pendingImport?'<div class="row"><button type="button" class="b danger" data-act="apply-import">Reemplazar todo con este archivo</button><span class="small muted">Se pisan los datos actuales para todo el cuerpo técnico.</span></div>':'')+
+     '<span class="small" id="imp-msg" role="status">'+esc(impMsg)+'</span></div></div>';
+  el.innerHTML=h;
+}
+/* ---------- planteles y tests ---------- */
+function num(v){return (v==null||v==="")?"":String(v).replace(".",",");}
+function isoToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function sortedEvals(pl){return (pl.evals||[]).slice().sort(function(a,b){var x=a.date||"",y=b.date||"";return x<y?-1:x>y?1:0;});}
+function deltaHtml(pl,tests){
+  var ev=sortedEvals(pl);if(ev.length<2||!tests.length)return "";
+  var h='<tr><th scope="row" title="Última medición menos la anterior">Cambio</th>';
+  tests.forEach(function(t){
+    var vals=ev.map(function(e){return e.vals?e.vals[t.id]:null;}).filter(function(v){return typeof v==="number";});
+    var s="–";
+    if(vals.length>=2){var d=Math.round((vals[vals.length-1]-vals[vals.length-2])*100)/100;s=(d>0?"+":"")+num(d);}
+    h+='<td>'+s+'</td>';
+  });
+  return h+'<td></td></tr>';
+}
+function realCat(id){return (S.config.cats||[]).some(function(c){return c.id===id;});}
+function renderRoster(){
+  var el=$("#sec-roster"),cats=(S.config.cats||[]).slice(),tests=S.config.tests||[],dis=canWrite?"":" disabled";
+  var all=Object.keys(P);
+  if(all.some(function(id){return !realCat(P[id].cat);}))cats.push({id:"__none",name:"Sin categoría"});
+  if(selP&&!P[selP])selP=null;
+  var nc=(S.config.cats||[]).length;
+  var h='<div><h2>Planteles</h2><p class="muted">'+all.length+(all.length===1?" jugadora":" jugadoras")+' en '+nc+(nc===1?" categoría":" categorías")+'. Tocá una categoría para ver sus jugadoras.</p></div>';
+  if(!cats.length){el.innerHTML=h+'<p class="muted">Primero agregá una categoría en la solapa Ajustes.</p>';return;}
+  var pl=selP&&P[selP];
+  h+='<div class="roster'+(pl?" has-sel":"")+'"><div class="squads">';
+  cats.forEach(function(c){
+    var ids=all.filter(function(id){return c.id==="__none"?!realCat(P[id].cat):P[id].cat===c.id;})
+      .sort(function(a,b){return String(P[a].name||"").localeCompare(String(P[b].name||""),"es");});
+    var open=openCat===c.id;
+    h+='<div class="squad"><button type="button" class="sqhead" data-sq="'+esc(c.id)+'" aria-expanded="'+open+'"><span class="sqname">'+esc(c.name||"Categoría")+'</span><span class="n">'+ids.length+(ids.length===1?" jugadora":" jugadoras")+' <span aria-hidden="true">'+(open?"−":"+")+'</span></span></button>';
+    if(open){
+    h+='<div class="plist">';
+    if(!ids.length)h+='<p class="muted small">Sin jugadoras cargadas.</p>';
+    ids.forEach(function(id){h+='<button type="button" class="pbtn" data-pid="'+esc(id)+'" aria-pressed="'+(id===selP)+'">'+esc(P[id].name||"Sin nombre")+'</button>';});
+    h+='</div>';
+    if(canWrite&&c.id!=="__none")h+='<div class="addrow"><input type="text" id="pl-new-'+esc(c.id)+'" data-new="'+esc(c.id)+'" placeholder="Nombre y apellido" aria-label="Agregar jugadora a '+esc(c.name)+'"><button type="button" class="b" data-act="add-player" data-cat="'+esc(c.id)+'">Agregar</button></div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  if(pl){
+    h+='<div class="editor" id="sheet"><div class="edhead"><div class="t"><h3>Planilla de '+esc(pl.name||"la jugadora")+'</h3></div><button type="button" class="b" data-act="close">Cerrar planilla</button></div>';
+    h+='<div class="basics"><label class="f"><span>Jugadora</span><input type="text" id="pl-name" data-f="name" value="'+esc(pl.name||"")+'"'+dis+'></label>'+
+       '<label class="f"><span>Puesto</span><input type="text" id="pl-pos" data-f="pos" value="'+esc(pl.pos||"")+'" placeholder="Arquera, defensora, volante…"'+dis+'></label>'+
+       '<label class="f"><span>Categoría</span><select id="pl-cat"'+dis+'>';
+    if(!realCat(pl.cat))h+='<option value="" selected>Sin categoría</option>';
+    (S.config.cats||[]).forEach(function(c){h+='<option value="'+esc(c.id)+'"'+(c.id===pl.cat?" selected":"")+'>'+esc(c.name)+'</option>';});
+    h+='</select></label></div>';
+    h+='<div><span class="lab">Resultados de los tests</span></div>';
+    if(!tests.length)h+='<p class="muted small">No hay tests definidos. Agregalos en la solapa Ajustes.</p>';
+    else{
+      var ev=sortedEvals(pl);
+      h+='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Fecha</th>';
+      tests.forEach(function(t){h+='<th scope="col">'+esc(t.name||"Test")+(t.unit?'<small>'+esc(t.unit)+'</small>':'')+'</th>';});
+      h+='<th></th></tr></thead><tbody>';
+      if(!ev.length)h+='<tr><td colspan="'+(tests.length+2)+'" class="muted">Sin evaluaciones cargadas.</td></tr>';
+      ev.forEach(function(e){
+        h+='<tr data-ev="'+esc(e.id)+'"><td><input type="date" id="ev-'+esc(e.id)+'-date" data-ef="date" value="'+esc(e.date||"")+'" aria-label="Fecha de la evaluación"'+dis+'></td>';
+        tests.forEach(function(t){
+          h+='<td><input type="text" inputmode="decimal" id="ev-'+esc(e.id)+'-'+esc(t.id)+'" data-t="'+esc(t.id)+'" value="'+esc(num(e.vals&&e.vals[t.id]))+'" aria-label="'+esc(t.name)+'" placeholder="–"'+dis+'></td>';
+        });
+        h+='<td>'+(canWrite?'<button type="button" class="b danger" data-act="del-ev">Quitar</button>':'')+'</td></tr>';
+      });
+      h+='</tbody><tfoot id="sheet-delta">'+deltaHtml(pl,tests)+'</tfoot></table></div>';
+      if(ev.length>=2)h+='<p class="small muted">Cambio = última medición menos la anterior de cada test.</p>';
+    }
+    h+='<label class="f"><span>Observaciones</span><textarea id="pl-notes" data-f="notes"'+dis+'>'+esc(pl.notes||"")+'</textarea></label>';
+    if(canWrite)h+='<div class="row">'+(tests.length?'<button type="button" class="b pri" data-act="add-ev">Agregar evaluación</button>':'')+'<button type="button" class="b danger" data-act="del-player">Quitar jugadora</button></div>';
+    h+='</div>';
+  }
+  h+='</div>';
+  el.innerHTML=h;
+}
+function addPlayer(cat){
+  var inp=document.getElementById("pl-new-"+cat);if(!inp||!canWrite)return;
+  var name=inp.value.trim();if(!name){inp.focus();return;}
+  var id="j"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  P[id]={name:name,cat:cat,pos:"",notes:"",evals:[]};
+  dirty("pl:"+id);renderRoster();
+  var n=document.getElementById("pl-new-"+cat);if(n)n.focus();
+}
+function renderLite(){renderHeader();renderPhases();renderGrid();renderEditor();renderRoster();}
+function renderAll(force){
+  if(!S.config)return;
+  $("#notice").hidden=true;$("#app").hidden=false;
+  $("#nav-ajustes").hidden=!canWrite;showView();
+  var a=document.activeElement;
+  renderHeader();renderPhases();renderGrid();
+  if(force||!(a&&a.closest&&a.closest("#sec-editor")))renderEditor();
+  if(force||!(a&&a.closest&&a.closest("#sec-roster")))renderRoster();
+  if(force||!(a&&a.closest&&a.closest("#sec-settings")))renderSettings();
+  setStatus();
+}
+function showNotice(html){$("#app").hidden=true;var n=$("#notice");n.hidden=false;n.innerHTML=html;}
+
+/* ---------- eventos ---------- */
+$("#gridwrap").addEventListener("click",function(e){
+  var b=e.target.closest(".cell");if(!b)return;
+  sel.c=b.dataset.c;sel.w=b.dataset.w;edMsg="";
+  renderGrid();renderEditor();
+  $("#sec-editor").scrollIntoView({block:"start"});
+});
+$("#sec-editor").addEventListener("input",function(e){
+  if(!canWrite||!sel.c||!sel.w)return;
+  var t=e.target,w=ensureW(sel.c,sel.w);
+  if(t.id==="f-focus")w.focus=t.value;
+  else if(t.dataset.day)w.days[t.dataset.day]=t.value;
+  else return;
+  dirty("cat:"+sel.c);
+});
+$("#sec-editor").addEventListener("change",function(e){
+  if(e.target.id==="f-focus")renderGrid();
+  else if(e.target.id==="ed-cat"){sel.c=e.target.value;edMsg="";renderGrid();renderEditor();var n=$("#ed-cat");if(n)n.focus();}
+});
+$("#sec-editor").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  var ws=weeks(),wi=-1;ws.forEach(function(w,i){if(w.key===sel.w)wi=i;});
+  if(b.dataset.load){
+    if(!canWrite)return;
+    var w=ensureW(sel.c,sel.w),v=+b.dataset.load;w.load=(w.load===v)?0:v;
+    dirty("cat:"+sel.c);renderGrid();renderEditor();return;
+  }
+  var act=b.dataset.act;
+  if(act==="prev"&&wi>0){sel.w=ws[wi-1].key;edMsg="";renderGrid();renderEditor();}
+  else if(act==="next"&&wi<ws.length-1){sel.w=ws[wi+1].key;edMsg="";renderGrid();renderEditor();}
+  else if(act==="copy-next"&&canWrite&&wi<ws.length-1){
+    ensureW(sel.c,ws[wi+1].key);S.cats[sel.c].weeks[ws[wi+1].key]=clone(ensureW(sel.c,sel.w));
+    dirty("cat:"+sel.c);edMsg="Copiada a la semana "+(wi+2)+".";renderGrid();renderEditor();
+  }
+  else if(act==="copy-cats"&&canWrite){
+    var src=clone(ensureW(sel.c,sel.w));
+    (S.config.cats||[]).forEach(function(c){
+      if(c.id===sel.c)return;ensureW(c.id,sel.w);S.cats[c.id].weeks[sel.w]=clone(src);dirty("cat:"+c.id);
+    });
+    edMsg="Copiada a todas las categorías.";renderGrid();renderEditor();
+  }
+});
+$("#sec-settings").addEventListener("input",function(e){
+  var t=e.target,c=S.config;
+  if(t.dataset.k){
+    if(t.dataset.k==="start"&&!t.value)return;
+    c[t.dataset.k]=t.value;
+  }else if(t.dataset.pk){
+    var row=t.closest("[data-p]"),p=(c.phases||[]).filter(function(x){return x.id===row.dataset.p;})[0];if(!p)return;
+    if(t.dataset.pk==="weeks"){if(!t.value)return;p.weeks=Math.max(1,Math.min(26,Math.round(+t.value||1)));}
+    else p[t.dataset.pk]=t.value;
+  }else if(t.dataset.ck){
+    var r=t.closest("[data-cat]"),k=(c.cats||[]).filter(function(x){return x.id===r.dataset.cat;})[0];if(!k)return;
+    k.name=t.value;
+  }else if(t.dataset.tk){
+    var tr=t.closest("[data-test]"),ts=(c.tests||[]).filter(function(x){return x.id===tr.dataset.test;})[0];if(!ts)return;
+    ts[t.dataset.tk]=t.value;
+  }else return;
+  dirty("config");renderLite();
+});
+$("#sec-settings").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-act]");if(!b)return;
+  if(b.dataset.act==="export"){exportData();return;}
+  if(b.dataset.act==="apply-import"){
+    if(pendingImport&&applyImport(pendingImport)){pendingImport=null;impMsg="Datos cargados.";}
+    renderAll(true);return;
+  }
+  var c=S.config,act=b.dataset.act,row=b.closest("[data-p]"),crow=b.closest("[data-cat]"),i;
+  c.phases=c.phases||[];c.cats=c.cats||[];
+  if(row)i=c.phases.findIndex(function(x){return x.id===row.dataset.p;});
+  var trow=b.closest("[data-test]");c.tests=c.tests||[];
+  if(act==="del-phase"||act==="del-cat"||act==="del-test"){
+    if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Quitar";return;}
+  }
+  if(act==="add-test"){c.tests.push({id:"t"+Date.now().toString(36),name:"Nuevo test",unit:""});}
+  else if(act==="del-test"&&trow){c.tests=c.tests.filter(function(x){return x.id!==trow.dataset.test;});}
+  else if(act==="tone"&&i>=0){var p=c.phases[i];p.tone=((+p.tone||((i%6)+1))%6)+1;}
+  else if(act==="up"&&i>0){c.phases.splice(i-1,0,c.phases.splice(i,1)[0]);}
+  else if(act==="down"&&i>=0&&i<c.phases.length-1){c.phases.splice(i+1,0,c.phases.splice(i,1)[0]);}
+  else if(act==="del-phase"&&i>=0){c.phases.splice(i,1);}
+  else if(act==="add-phase"){c.phases.push({id:"p"+Date.now().toString(36),name:"Nueva fase",weeks:2,goal:"",tone:(c.phases.length%6)+1});}
+  else if(act==="add-cat"){var id="c"+Date.now().toString(36);c.cats.push({id:id,name:"Nueva categoría"});S.cats[id]={weeks:{}};dirty("cat:"+id);}
+  else if(act==="del-cat"&&crow){var cid=crow.dataset.cat;c.cats=c.cats.filter(function(x){return x.id!==cid;});delete S.cats[cid];dirty("cat:"+cid);}
+  else return;
+  dirty("config");renderAll(true);
+});
+$("#sec-roster").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  if(b.dataset.sq){openCat=openCat===b.dataset.sq?null:b.dataset.sq;renderRoster();return;}
+  if(b.dataset.pid){
+    selP=b.dataset.pid;renderRoster();
+    if(window.matchMedia&&window.matchMedia("(max-width:760px)").matches){var s=$("#sheet");if(s)s.scrollIntoView({block:"start"});}
+    return;
+  }
+  var act=b.dataset.act;if(!act)return;
+  if(act==="close"){selP=null;renderRoster();return;}
+  if(!canWrite)return;
+  if(act==="add-player"){addPlayer(b.dataset.cat);return;}
+  var pl=selP&&P[selP];if(!pl)return;
+  if(act==="del-ev"||act==="del-player"){
+    if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Quitar";return;}
+  }
+  if(act==="add-ev"){pl.evals=pl.evals||[];pl.evals.push({id:"e"+Date.now().toString(36),date:isoToday(),vals:{}});}
+  else if(act==="del-ev"){var r=b.closest("[data-ev]");pl.evals=(pl.evals||[]).filter(function(x){return x.id!==r.dataset.ev;});}
+  else if(act==="del-player"){var id=selP;delete P[id];selP=null;dirty("pl:"+id);renderRoster();return;}
+  else return;
+  dirty("pl:"+selP);renderRoster();
+});
+$("#sec-roster").addEventListener("keydown",function(e){
+  if(e.key==="Enter"&&e.target.dataset&&e.target.dataset.new){e.preventDefault();addPlayer(e.target.dataset.new);}
+});
+$("#sec-roster").addEventListener("input",function(e){
+  var t=e.target,pl=selP&&P[selP];if(!pl||!canWrite)return;
+  if(t.dataset.f){
+    pl[t.dataset.f]=t.value;
+    if(t.dataset.f==="name"){var bt=document.querySelector('.pbtn[aria-pressed="true"]');if(bt)bt.textContent=t.value||"Sin nombre";}
+  }else{
+    var row=t.closest("[data-ev]");if(!row)return;
+    var ev=(pl.evals||[]).filter(function(x){return x.id===row.dataset.ev;})[0];if(!ev)return;
+    if(t.dataset.ef==="date"){if(!t.value)return;ev.date=t.value;}
+    else if(t.dataset.t){
+      ev.vals=ev.vals||{};
+      var v=parseFloat(String(t.value).replace(",","."));
+      if(isNaN(v))delete ev.vals[t.dataset.t];else ev.vals[t.dataset.t]=v;
+      var tf=$("#sheet-delta");if(tf)tf.innerHTML=deltaHtml(pl,S.config.tests||[]);
+    }else return;
+  }
+  dirty("pl:"+selP);
+});
+$("#sec-roster").addEventListener("change",function(e){
+  if(e.target.id!=="pl-cat"||!canWrite)return;
+  var pl=selP&&P[selP];if(!pl||!e.target.value)return;
+  pl.cat=e.target.value;openCat=pl.cat;dirty("pl:"+selP);renderRoster();
+});
+$("#notice").addEventListener("click",function(e){
+  if(!e.target.closest("[data-act=create]")||!db)return;
+  var d=new Date(),dow=d.getDay(),add=(8-dow)%7;d.setDate(d.getDate()+add);
+  var iso=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  S.config={club:"Mi club",start:iso,phases:[{id:"p1",name:"Fase 1",weeks:4,goal:"",tone:1}],cats:[{id:"c1",name:"Categoría 1"}]};
+  S.cats={c1:{weeks:{}}};
+  dirty("config");dirty("cat:c1");renderAll(true);
+});
+
+function showView(v){
+  if(!v)v=(location.hash||"").slice(1);
+  if(VIEWS.indexOf(v)<0||(v==="ajustes"&&!canWrite))v="planteles";
+  VIEWS.forEach(function(x){
+    $("#view-"+x).hidden=x!==v;
+    if(x===v)$("#nav-"+x).setAttribute("aria-current","page");else $("#nav-"+x).removeAttribute("aria-current");
+  });
+}
+document.querySelector(".nav").addEventListener("click",function(e){var a=e.target.closest("a[data-view]");if(a)showView(a.dataset.view);});
+window.addEventListener("hashchange",function(){showView();});
+
+/* ---------- datos ---------- */
+var slow=null;
+function startSlow(){
+  slow=setTimeout(function(){
+    if(!S.config)showNotice('<p>Todavía no se puede acceder a los datos del plan. Se sigue intentando…</p>');
+  },10000);
+}
+
+/* ---------- copia de seguridad ---------- */
+function okId(x){return /^[A-Za-z0-9_-]{1,100}$/.test(x);}
+function applyImport(d){
+  if(!d||typeof d!=="object"||!d.config||!Array.isArray(d.config.phases)||!Array.isArray(d.config.cats))return false;
+  var cats=d.cats&&typeof d.cats==="object"?d.cats:{},pls=d.players&&typeof d.players==="object"?d.players:{};
+  if(!Object.keys(cats).every(okId)||!Object.keys(pls).every(okId))return false;
+  var oldC=Object.keys(S.cats),oldP=Object.keys(P);
+  S.config=clone(d.config);S.cats=clone(cats);P=clone(pls);selP=null;
+  S.config.cats.forEach(function(c){if(okId(c.id)&&!S.cats[c.id])S.cats[c.id]={weeks:{}};});
+  dirty("config");
+  Object.keys(S.cats).concat(oldC).forEach(function(id){dirty("cat:"+id);});
+  Object.keys(P).concat(oldP).forEach(function(id){dirty("pl:"+id);});
+  return true;
+}
+function readImport(file,done){
+  var r=new FileReader();
+  r.onload=function(){var d=null;try{d=JSON.parse(String(r.result));}catch(e){}done(d);};
+  r.onerror=function(){done(null);};
+  r.readAsText(file);
+}
+function exportData(){
+  var blob=new Blob([JSON.stringify({config:S.config,cats:S.cats,players:P},null,1)],{type:"application/json"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="copia-planificacion-hockey.json";
+  document.body.appendChild(a);a.click();a.remove();
+}
+$("#sec-settings").addEventListener("change",function(e){
+  if(e.target.id!=="imp-file"||!e.target.files||!e.target.files[0])return;
+  readImport(e.target.files[0],function(d){
+    var ok=d&&d.config&&Array.isArray(d.config.phases)&&Array.isArray(d.config.cats);
+    pendingImport=ok?d:null;
+    impMsg=ok?"Archivo leído. Confirmá para reemplazar los datos.":"Ese archivo no es una copia válida de esta app.";
+    renderSettings();
+  });
+});
+$("#notice").addEventListener("change",function(e){
+  if(e.target.id!=="first-file"||!e.target.files||!e.target.files[0])return;
+  readImport(e.target.files[0],function(d){
+    if(d&&applyImport(d))renderAll(true);
+    else{var m=$("#first-msg");if(m)m.textContent="Ese archivo no es una copia válida de esta app.";}
+  });
+});
+
+/* ---------- ingreso ---------- */
+var auth=null;
+var AUTHMSG={"auth/invalid-credential":"Mail o contraseña incorrectos.","auth/wrong-password":"Mail o contraseña incorrectos.","auth/user-not-found":"Mail o contraseña incorrectos.",
+  "auth/invalid-email":"Ese mail no es válido.","auth/too-many-requests":"Demasiados intentos. Probá de nuevo en unos minutos.","auth/network-request-failed":"No hay conexión a internet.",
+  "auth/user-disabled":"Ese usuario está deshabilitado."};
+function showLogin(){
+  $("#logout").hidden=true;$("#status").textContent="Sin iniciar sesión";
+  showNotice('<h3>Ingresar</h3><form class="login" id="login" novalidate>'+
+    '<label class="f"><span>Mail</span><input type="email" id="lg-mail" autocomplete="username" required></label>'+
+    '<label class="f"><span>Contraseña</span><input type="password" id="lg-pass" autocomplete="current-password" required></label>'+
+    '<span class="err" id="lg-err" role="alert"></span>'+
+    '<button type="submit" class="b pri" id="lg-go">Ingresar</button>'+
+    '<button type="button" class="linkbtn" id="lg-reset">Olvidé mi contraseña</button></form>');
+}
+$("#notice").addEventListener("submit",function(e){
+  if(e.target.id!=="login")return;
+  e.preventDefault();
+  var mail=$("#lg-mail").value.trim(),pass=$("#lg-pass").value,err=$("#lg-err"),go=$("#lg-go");
+  if(!mail||!pass){err.textContent="Completá mail y contraseña.";return;}
+  err.textContent="";go.disabled=true;go.textContent="Ingresando…";
+  auth.signInWithEmailAndPassword(mail,pass).catch(function(x){
+    go.disabled=false;go.textContent="Ingresar";
+    err.textContent=AUTHMSG[x&&x.code]||"No se pudo ingresar. Probá de nuevo.";
+  });
+});
+$("#notice").addEventListener("click",function(e){
+  if(e.target.id!=="lg-reset")return;
+  var mail=$("#lg-mail").value.trim(),err=$("#lg-err");
+  if(!mail){err.textContent="Escribí tu mail arriba y volvé a tocar acá.";return;}
+  auth.sendPasswordResetEmail(mail).then(function(){err.textContent="Si ese mail tiene usuario, te llega un enlace para cambiar la contraseña.";},
+    function(x){err.textContent=AUTHMSG[x&&x.code]||"No se pudo enviar el mail.";});
+});
+$("#logout").addEventListener("click",function(){auth.signOut().then(function(){location.reload();});});
+
+/* ---------- datos ---------- */
+function ready(){
+  if(!got.config||!got.cats)return;
+  clearTimeout(slow);
+  if(!S.config){
+    showNotice('<h3>Todavía no hay un plan cargado</h3><p class="muted">Cargá la copia con tus datos o empezá de cero.</p>'+
+      '<label class="f" style="width:100%;max-width:420px"><span>Cargar una copia (.json)</span><input type="file" id="first-file" accept=".json,application/json"></label>'+
+      '<span class="small" id="first-msg" role="status"></span>'+
+      '<button type="button" class="b" data-act="create">Crear plan vacío</button>');
+    setStatus();return;
+  }
+  renderAll(false);
+}
+function onErr(e){
+  clearTimeout(slow);
+  if(e&&e.code==="permission-denied")showNotice('<h3>Tu usuario no está habilitado</h3><p class="muted">Pedile a quien administra la app que agregue tu mail a la lista del cuerpo técnico.</p>');
+  else if(!S.config)showNotice('<p>No se pudo acceder a los datos del plan. Abrí la página de nuevo en un rato.</p>');
+  $("#status").textContent="Sin conexión a los datos";
+}
+var started=false;
+function start(){
+  if(started)return;started=true;
+  $("#logout").hidden=false;
+  showNotice('<p>Cargando el plan…</p>');startSlow();
+  db=firebase.firestore();
+  db.doc("plan/config").onSnapshot(function(s){
+    got.config=true;
+    if(!isDirty("config"))S.config=s.exists?clone(s.data()):null;
+    ready();
+  },onErr);
+  db.collection("cats").onSnapshot(function(q){
+    got.cats=true;var seen={};
+    q.docs.forEach(function(d){seen[d.id]=1;if(!isDirty("cat:"+d.id))S.cats[d.id]=clone(d.data());});
+    Object.keys(S.cats).forEach(function(id){if(!seen[id]&&!isDirty("cat:"+id))delete S.cats[id];});
+    ready();
+  },onErr);
+  db.collection("players").onSnapshot(function(q){
+    var seen={};
+    q.docs.forEach(function(d){seen[d.id]=1;if(!isDirty("pl:"+d.id))P[d.id]=clone(d.data());});
+    Object.keys(P).forEach(function(id){if(!seen[id]&&!isDirty("pl:"+id))delete P[id];});
+    if(S.config&&!$("#app").hidden){var a=document.activeElement;if(!(a&&a.closest&&a.closest("#sec-roster")))renderRoster();}
+  },function(){});
+}
+(function(){
+  if(typeof firebase==="undefined"){showNotice('<p>No se pudo cargar la app. Revisá tu conexión a internet y volvé a abrir la página.</p>');$("#status").textContent="Sin conexión";return;}
+  if(!FIREBASE_CONFIG.apiKey||FIREBASE_CONFIG.apiKey.indexOf("PEGAR")===0){
+    showNotice('<h3>Falta conectar la base de datos</h3><p class="muted">Pegá la configuración de Firebase al principio de este archivo, donde dice FIREBASE_CONFIG.</p>');
+    $("#status").textContent="Sin configurar";return;
+  }
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth=firebase.auth();
+  auth.onAuthStateChanged(function(u){if(u)start();else if(!started)showLogin();});
+})();
+})();
+</script>
+
+</body>
+</html>
