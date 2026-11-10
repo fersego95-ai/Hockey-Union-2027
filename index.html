@@ -120,6 +120,20 @@ button.b:disabled{opacity:.4;cursor:default}
 .login{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
 .login .err{color:var(--warn);font-size:.88rem;min-height:1.2em}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-size:.88rem;cursor:pointer;text-decoration:underline;text-align:left}
+/* wellness */
+.wq{display:flex;flex-direction:column;gap:6px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.wq .qt{font-family:var(--display);font-weight:600;font-size:1.2rem}
+.scale{display:flex;gap:6px}
+.scale button{flex:1;min-width:0;height:48px;font:600 1.25rem var(--display);border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;cursor:pointer}
+.scale button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.ends{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted)}
+.athbox{max-width:560px;width:100%}
+.sum{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;font-variant-numeric:tabular-nums}
+.sum b{font-family:var(--display);font-size:1.15rem}
+.low{color:var(--warn);font-weight:700}
+.wctl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.wctl label.f{width:auto}
+.sheet td.note{white-space:normal;min-width:180px;max-width:320px}
 /* ajustes */
 .settings{display:flex;flex-direction:column;gap:28px}
 .basics{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
@@ -204,11 +218,13 @@ var FIREBASE_CONFIG = {
     </div>
   </header>
 
-  <div id="notice" class="notice"><p>Cargando el plan…</p></div>
+  <div id="notice" class="notice"><p>Cargando…</p></div>
+  <section id="ath" hidden></section>
 
   <main id="app" hidden>
     <nav class="nav" aria-label="Secciones">
       <a href="#planteles" id="nav-planteles" data-view="planteles">Planteles</a>
+      <a href="#wellness" id="nav-wellness" data-view="wellness">Wellness</a>
       <a href="#planificacion" id="nav-planificacion" data-view="planificacion">Planificación</a>
       <a href="#ajustes" id="nav-ajustes" data-view="ajustes">Ajustes</a>
     </nav>
@@ -227,6 +243,9 @@ var FIREBASE_CONFIG = {
     </section>
     <section id="sec-phases" aria-label="Fases"></section>
     </div>
+    <div class="view" id="view-wellness" hidden>
+    <section id="sec-wellness"></section>
+    </div>
     <div class="view" id="view-ajustes" hidden>
     <section id="sec-settings"></section>
     </div>
@@ -241,8 +260,8 @@ var MES=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"
 var LOADTXT=["Sin definir","Muy liviana","Liviana","Media","Alta","Muy alta"];
 var db=null,canWrite=true,S={config:null,cats:{}},sel={c:null,w:null},got={config:false,cats:false};
 var timers={},busy={},again={},hadErr=false,edMsg="";
-var pendingImport=null,impMsg="";
-var P={},selP=null,openCat=null,VIEWS=["planteles","planificacion","ajustes"];
+var pendingImport=null,impMsg="",mailMsg="",me="";
+var P={},selP=null,openCat=null,VIEWS=["planteles","wellness","planificacion","ajustes"];
 var $=function(s){return document.querySelector(s);};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function clone(o){return JSON.parse(JSON.stringify(o));}
@@ -486,7 +505,9 @@ function renderRoster(){
        '<label class="f"><span>Categoría</span><select id="pl-cat"'+dis+'>';
     if(!realCat(pl.cat))h+='<option value="" selected>Sin categoría</option>';
     (S.config.cats||[]).forEach(function(c){h+='<option value="'+esc(c.id)+'"'+(c.id===pl.cat?" selected":"")+'>'+esc(c.name)+'</option>';});
-    h+='</select></label></div>';
+    h+='</select></label>'+
+       '<label class="f"><span>Mail de ingreso</span><input type="email" id="pl-mail" value="'+esc(pl.email||"")+'" placeholder="Para que complete el wellness" autocomplete="off"'+dis+'></label></div>';
+    h+='<span class="small muted" id="pl-mail-msg" role="status">'+esc(mailMsg)+'</span>';
     h+='<div><span class="lab">Resultados de los tests</span></div>';
     if(!tests.length)h+='<p class="muted small">No hay tests definidos. Agregalos en la solapa Ajustes.</p>';
     else{
@@ -505,6 +526,7 @@ function renderRoster(){
       h+='</tbody><tfoot id="sheet-delta">'+deltaHtml(pl,tests)+'</tfoot></table></div>';
       if(ev.length>=2)h+='<p class="small muted">Cambio = última medición menos la anterior de cada test.</p>';
     }
+    h+='<div><span class="lab">Wellness (últimos registros)</span></div><div id="wl-hist">'+histHtml(pl)+'</div>';
     h+='<label class="f"><span>Observaciones</span><textarea id="pl-notes" data-f="notes"'+dis+'>'+esc(pl.notes||"")+'</textarea></label>';
     if(canWrite)h+='<div class="row">'+(tests.length?'<button type="button" class="b pri" data-act="add-ev">Agregar evaluación</button>':'')+'<button type="button" class="b danger" data-act="del-player">Quitar jugadora</button></div>';
     h+='</div>';
@@ -624,7 +646,7 @@ $("#sec-roster").addEventListener("click",function(e){
   var b=e.target.closest("button");if(!b)return;
   if(b.dataset.sq){openCat=openCat===b.dataset.sq?null:b.dataset.sq;renderRoster();return;}
   if(b.dataset.pid){
-    selP=b.dataset.pid;renderRoster();
+    selP=b.dataset.pid;mailMsg="";if(P[selP]&&P[selP].email)loadHist(P[selP].email,true);renderRoster();
     if(window.matchMedia&&window.matchMedia("(max-width:760px)").matches){var s=$("#sheet");if(s)s.scrollIntoView({block:"start"});}
     return;
   }
@@ -638,9 +660,23 @@ $("#sec-roster").addEventListener("click",function(e){
   }
   if(act==="add-ev"){pl.evals=pl.evals||[];pl.evals.push({id:"e"+Date.now().toString(36),date:isoToday(),vals:{}});}
   else if(act==="del-ev"){var r=b.closest("[data-ev]");pl.evals=(pl.evals||[]).filter(function(x){return x.id!==r.dataset.ev;});}
-  else if(act==="del-player"){var id=selP;delete P[id];selP=null;dirty("pl:"+id);renderRoster();return;}
+  else if(act==="del-player"){var id=selP;if(P[id].email)db.doc("atletas/"+P[id].email).delete().catch(function(){});delete P[id];selP=null;dirty("pl:"+id);renderRoster();return;}
   else return;
   dirty("pl:"+selP);renderRoster();
+});
+$("#sec-roster").addEventListener("change",function(e){
+  var pl=selP&&P[selP];if(!pl||!canWrite)return;
+  if(e.target.id==="pl-name"){if(pl.email)syncAthlete(selP);return;}
+  if(e.target.id!=="pl-mail")return;
+  var v=e.target.value.trim().toLowerCase(),old=pl.email||"";
+  if(v===old)return;
+  if(v&&!/^[^\s\/@]+@[^\s\/@]+\.[^\s\/@]+$/.test(v)){mailMsg="Ese mail no es válido.";$("#pl-mail-msg").textContent=mailMsg;return;}
+  if(v&&Object.keys(P).some(function(id){return id!==selP&&P[id].email===v;})){mailMsg="Ese mail ya está cargado en otra jugadora.";$("#pl-mail-msg").textContent=mailMsg;return;}
+  if(old)db.doc("atletas/"+old).delete().catch(function(){});
+  pl.email=v;dirty("pl:"+selP);
+  if(v){syncAthlete(selP);loadHist(v,true);mailMsg="Listo. Ya puede entrar a la app con ese mail.";}
+  else mailMsg="Sin mail no puede completar el wellness.";
+  renderRoster();
 });
 $("#sec-roster").addEventListener("keydown",function(e){
   if(e.key==="Enter"&&e.target.dataset&&e.target.dataset.new){e.preventDefault();addPlayer(e.target.dataset.new);}
@@ -677,15 +713,16 @@ $("#notice").addEventListener("click",function(e){
   dirty("config");dirty("cat:c1");renderAll(true);
 });
 
-function showView(v){
+function showView(v,force){
   if(!v)v=(location.hash||"").slice(1);
   if(VIEWS.indexOf(v)<0||(v==="ajustes"&&!canWrite))v="planteles";
   VIEWS.forEach(function(x){
     $("#view-"+x).hidden=x!==v;
     if(x===v)$("#nav-"+x).setAttribute("aria-current","page");else $("#nav-"+x).removeAttribute("aria-current");
   });
+  if(v==="wellness")loadWellness(!!force);
 }
-document.querySelector(".nav").addEventListener("click",function(e){var a=e.target.closest("a[data-view]");if(a)showView(a.dataset.view);});
+document.querySelector(".nav").addEventListener("click",function(e){var a=e.target.closest("a[data-view]");if(a)showView(a.dataset.view,true);});
 window.addEventListener("hashchange",function(){showView();});
 
 /* ---------- datos ---------- */
@@ -708,6 +745,7 @@ function applyImport(d){
   dirty("config");
   Object.keys(S.cats).concat(oldC).forEach(function(id){dirty("cat:"+id);});
   Object.keys(P).concat(oldP).forEach(function(id){dirty("pl:"+id);});
+  Object.keys(P).forEach(function(id){if(P[id].email)syncAthlete(id);});
   return true;
 }
 function readImport(file,done){
@@ -738,32 +776,204 @@ $("#notice").addEventListener("change",function(e){
   });
 });
 
+/* ---------- wellness ---------- */
+var WQ=[["sueno","Calidad del sueño","Muy mala","Muy buena"],["fatiga","Fatiga","Mucha","Nada"],["dolor","Dolor muscular","Mucho","Nada"],["estres","Estrés","Mucho","Nada"],["animo","Estado de ánimo","Muy bajo","Muy bueno"]];
+function wTotal(d){var t=0;for(var i=0;i<WQ.length;i++){var v=+d[WQ[i][0]];if(!(v>=1&&v<=5))return null;t+=v;}return t;}
+function wCell(v){v=+v;if(!(v>=1&&v<=5))return '<td>–</td>';return '<td'+(v<=2?' class="low"':'')+'>'+v+'</td>';}
+function fechaCorta(iso){var d=parseD(iso);return fmt(d,true);}
+function syncAthlete(id){
+  var pl=P[id];if(!pl||!pl.email||!db)return;
+  db.doc("atletas/"+pl.email).set({player:id,nombre:pl.name||"",club:(S.config&&S.config.club)||""}).catch(function(){});
+}
+
+/* cuerpo técnico: historial en la ficha */
+var WH={};
+function loadHist(m,force){
+  if(!m||(!force&&WH[m]))return;
+  db.collection("atletas/"+m+"/wellness").orderBy("fecha","desc").limit(14).get().then(function(q){
+    WH[m]=q.docs.map(function(d){return d.data();});
+  },function(){WH[m]=[];}).then(function(){
+    var el=$("#wl-hist");if(el&&selP&&P[selP]&&P[selP].email===m)el.innerHTML=histHtml(P[selP]);
+  });
+}
+function histHtml(pl){
+  if(!pl.email)return '<p class="muted small">Cargá su mail de ingreso para que pueda completar el wellness.</p>';
+  var rows=WH[pl.email];
+  if(!rows)return '<p class="muted small">Cargando…</p>';
+  if(!rows.length)return '<p class="muted small">Todavía no completó ningún wellness.</p>';
+  var h='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Fecha</th>';
+  WQ.forEach(function(q){h+='<th scope="col">'+q[1]+'</th>';});
+  h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Comentario</th></tr></thead><tbody>';
+  rows.forEach(function(d){
+    var t=wTotal(d);
+    h+='<tr><td>'+esc(fechaCorta(d.fecha))+'</td>';WQ.forEach(function(q){h+=wCell(d[q[0]]);});
+    h+='<td>'+(d.horas!=null?esc(num(d.horas)):"–")+'</td><td><b>'+(t==null?"–":t)+'</b></td><td class="note">'+esc(d.nota||"")+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+/* cuerpo técnico: solapa Wellness */
+var wl={cat:null,date:null,key:"",rows:null};
+function loadWellness(force){
+  if(!S.config||!db)return;
+  var cats=S.config.cats||[];
+  if(!cats.some(function(c){return c.id===wl.cat;}))wl.cat=cats.length?cats[0].id:null;
+  if(!wl.date)wl.date=isoToday();
+  var key=wl.cat+"|"+wl.date;
+  if(!force&&key===wl.key){renderWellness();return;}
+  wl.key=key;wl.rows=null;renderWellness();
+  var ids=Object.keys(P).filter(function(id){return P[id].cat===wl.cat;})
+    .sort(function(a,b){return String(P[a].name||"").localeCompare(String(P[b].name||""),"es");});
+  Promise.all(ids.map(function(id){
+    var m=P[id].email;
+    if(!m)return {id:id,state:"nomail"};
+    return db.doc("atletas/"+m+"/wellness/"+wl.date).get().then(function(sn){
+      return sn.exists?{id:id,state:"ok",d:sn.data()}:{id:id,state:"pend"};
+    },function(){return {id:id,state:"err"};});
+  })).then(function(rows){if(wl.key!==key)return;wl.rows=rows;renderWellness();});
+}
+function renderWellness(){
+  var el=$("#sec-wellness"),cats=S.config.cats||[];
+  var a=document.activeElement,keep=a&&a.closest&&a.closest("#sec-wellness")?a.id:null;
+  var h='<div><h2>Wellness</h2><p class="muted">Respuestas del día por plantel. Cada deportista lo completa al ingresar con su mail.</p></div>';
+  if(!cats.length){el.innerHTML=h+'<p class="muted">Primero agregá una categoría en la solapa Ajustes.</p>';return;}
+  h+='<div class="wctl"><label class="f"><span>Categoría</span><select id="wl-cat">'+
+     cats.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===wl.cat?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select></label>'+
+     '<label class="f"><span>Día</span><input type="date" id="wl-date" value="'+esc(wl.date||"")+'"></label>'+
+     '<button type="button" class="b" id="wl-refresh">Actualizar</button></div>';
+  if(!wl.rows){el.innerHTML=h+'<p class="muted">Cargando respuestas…</p>';}
+  else if(!wl.rows.length){el.innerHTML=h+'<p class="muted">Esta categoría todavía no tiene jugadoras cargadas.</p>';}
+  else{
+    var ok=wl.rows.filter(function(r){return r.state==="ok";}).length,conMail=wl.rows.filter(function(r){return r.state!=="nomail";}).length;
+    h+='<p><b>'+ok+' de '+conMail+'</b> completaron el wellness del '+esc(fechaCorta(wl.date))+'.'+(conMail<wl.rows.length?' '+(wl.rows.length-conMail)+' no tienen mail cargado.':'')+'</p>';
+    h+='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Jugadora</th>';
+    WQ.forEach(function(q){h+='<th scope="col">'+q[1]+'</th>';});
+    h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Comentario</th></tr></thead><tbody>';
+    wl.rows.forEach(function(r){
+      var pl=P[r.id]||{};
+      h+='<tr><th scope="row">'+esc(pl.name||"Sin nombre")+'</th>';
+      if(r.state==="ok"){
+        var t=wTotal(r.d);WQ.forEach(function(q){h+=wCell(r.d[q[0]]);});
+        h+='<td>'+(r.d.horas!=null?esc(num(r.d.horas)):"–")+'</td><td><b>'+(t==null?"–":t)+'</b></td><td class="note">'+esc(r.d.nota||"")+'</td>';
+      }else{
+        h+='<td colspan="'+(WQ.length+3)+'" class="muted">'+(r.state==="nomail"?"Sin mail de ingreso cargado":r.state==="pend"?"Sin responder":"No se pudo leer")+'</td>';
+      }
+      h+='</tr>';
+    });
+    h+='</tbody></table></div><p class="small muted">Escala de 1 a 5, donde 5 es lo mejor. Los valores de 1 y 2 aparecen resaltados en rojo y negrita.</p>';
+    el.innerHTML=h;
+  }
+  if(keep){var n=document.getElementById(keep);if(n)n.focus();}
+}
+$("#sec-wellness").addEventListener("change",function(e){
+  if(e.target.id==="wl-cat"){wl.cat=e.target.value;loadWellness(false);}
+  else if(e.target.id==="wl-date"&&e.target.value){wl.date=e.target.value;loadWellness(false);}
+});
+$("#sec-wellness").addEventListener("click",function(e){if(e.target.id==="wl-refresh")loadWellness(true);});
+
+/* deportista: pantalla principal */
+var A={info:null,fecha:"",ans:{},done:false,edit:false};
+function athMsg(html){$("#ath").hidden=true;showNotice(html);}
+function startAthlete(){
+  started=true;$("#status").hidden=true;$("#logout").hidden=false;$("#range").textContent="";
+  db.doc("atletas/"+me).get().then(function(sn){
+    if(!sn.exists){athMsg('<h3>Tu mail todavía no está en el plantel</h3><p class="muted">Avisale a tu preparador físico que entraste con <b>'+esc(me)+'</b> para que lo cargue en tu ficha. Después volvé a abrir la app.</p>');return;}
+    A.info=sn.data();A.fecha=isoToday();
+    if(A.info.club)$("#club").textContent=A.info.club;
+    return db.doc("atletas/"+me+"/wellness/"+A.fecha).get().then(function(d){
+      if(d.exists){A.ans=clone(d.data());A.done=true;}
+      renderAth();
+    });
+  }).catch(function(){
+    athMsg('<h3>No se pudo abrir tu wellness</h3><p class="muted">Revisá tu conexión y volvé a abrir la app. Si sigue igual, avisale a tu preparador físico.</p>');
+  });
+}
+function renderAth(){
+  var el=$("#ath");$("#notice").hidden=true;$("#app").hidden=true;el.hidden=false;
+  var nombre=String(A.info.nombre||"").trim().split(/\s+/)[0]||"";
+  var hoy=new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+  var h='<div><h2>Wellness de hoy</h2><p class="muted">'+esc(hoy)+(nombre?' · Hola, '+esc(nombre):'')+'</p></div><div class="editor athbox">';
+  if(A.done&&!A.edit){
+    var t=wTotal(A.ans);
+    h+='<h3>Ya lo completaste hoy. ¡Gracias!</h3><div class="sum">';
+    WQ.forEach(function(q){h+='<span>'+q[1]+'</span><b>'+esc(A.ans[q[0]])+' / 5</b>';});
+    if(A.ans.horas!=null&&A.ans.horas!=="")h+='<span>Horas de sueño</span><b>'+esc(num(A.ans.horas))+'</b>';
+    h+='<span>Total</span><b>'+(t==null?"–":t)+' / 25</b></div>';
+    if(A.ans.nota)h+='<p class="small muted">'+esc(A.ans.nota)+'</p>';
+    h+='<div><button type="button" class="b" id="ath-edit">Cambiar mis respuestas</button></div>';
+  }else{
+    h+='<p class="muted">Respondé cómo estás hoy. 1 es lo peor y 5 lo mejor.</p>';
+    WQ.forEach(function(q){
+      h+='<div class="wq"><span class="qt">'+q[1]+'</span><div class="scale" role="group" aria-label="'+q[1]+'">';
+      for(var i=1;i<=5;i++)h+='<button type="button" data-q="'+q[0]+'" data-v="'+i+'" aria-pressed="'+(+A.ans[q[0]]===i)+'">'+i+'</button>';
+      h+='</div><div class="ends"><span>'+q[2]+'</span><span>'+q[3]+'</span></div></div>';
+    });
+    h+='<label class="f" style="max-width:200px"><span>Horas de sueño</span><input type="text" inputmode="decimal" id="ath-horas" value="'+esc(A.ans.horas!=null?num(A.ans.horas):"")+'" placeholder="Por ejemplo 7,5"></label>'+
+       '<label class="f"><span>¿Algún dolor o molestia? (opcional)</span><textarea id="ath-nota" maxlength="500">'+esc(A.ans.nota||"")+'</textarea></label>'+
+       '<span class="small low" id="ath-err" role="alert"></span>'+
+       '<div><button type="button" class="b pri" id="ath-send" style="padding:12px 28px;font-size:1rem">Enviar</button></div>';
+  }
+  el.innerHTML=h+'</div>';
+}
+function sendAth(){
+  var err=$("#ath-err"),miss=WQ.filter(function(q){return !(+A.ans[q[0]]>=1);});
+  if(miss.length){err.textContent="Te falta responder: "+miss.map(function(q){return q[1].toLowerCase();}).join(", ")+".";return;}
+  var doc={fecha:A.fecha,ts:Date.now(),nota:String(A.ans.nota||"").slice(0,500)};
+  WQ.forEach(function(q){doc[q[0]]=+A.ans[q[0]];});
+  var hs=parseFloat(String(A.ans.horas==null?"":A.ans.horas).replace(",","."));
+  if(!isNaN(hs)&&hs>=0&&hs<=24)doc.horas=hs;
+  var b=$("#ath-send");b.disabled=true;b.textContent="Enviando…";err.textContent="";
+  db.doc("atletas/"+me+"/wellness/"+A.fecha).set(doc).then(function(){
+    A.ans=doc;A.done=true;A.edit=false;renderAth();
+  },function(){b.disabled=false;b.textContent="Enviar";err.textContent="No se pudo enviar. Revisá tu conexión y probá de nuevo.";});
+}
+$("#ath").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  if(b.dataset.q){
+    A.ans[b.dataset.q]=+b.dataset.v;
+    var er=$("#ath-err");if(er)er.textContent="";
+    [].forEach.call(b.parentNode.children,function(x){x.setAttribute("aria-pressed",String(x===b));});
+  }else if(b.id==="ath-edit"){A.edit=true;renderAth();}
+  else if(b.id==="ath-send")sendAth();
+});
+$("#ath").addEventListener("input",function(e){
+  if(e.target.id==="ath-horas")A.ans.horas=e.target.value;
+  else if(e.target.id==="ath-nota")A.ans.nota=e.target.value;
+});
+
 /* ---------- ingreso ---------- */
-var auth=null;
+var auth=null,signup=false;
 var AUTHMSG={"auth/invalid-credential":"Mail o contraseña incorrectos.","auth/wrong-password":"Mail o contraseña incorrectos.","auth/user-not-found":"Mail o contraseña incorrectos.",
   "auth/invalid-email":"Ese mail no es válido.","auth/too-many-requests":"Demasiados intentos. Probá de nuevo en unos minutos.","auth/network-request-failed":"No hay conexión a internet.",
-  "auth/user-disabled":"Ese usuario está deshabilitado."};
+  "auth/user-disabled":"Ese usuario está deshabilitado.","auth/email-already-in-use":"Ese mail ya tiene cuenta. Ingresá con tu contraseña.",
+  "auth/weak-password":"La contraseña tiene que tener al menos 6 caracteres.","auth/missing-password":"Escribí una contraseña."};
 function showLogin(){
   $("#logout").hidden=true;$("#status").textContent="Sin iniciar sesión";
-  showNotice('<h3>Ingresar</h3><form class="login" id="login" novalidate>'+
+  showNotice('<h3>'+(signup?"Crear mi cuenta":"Ingresar")+'</h3>'+
+    (signup?'<p class="muted small">Usá el mismo mail que le pasaste a tu preparador físico y elegí una contraseña de al menos 6 caracteres.</p>':'')+
+    '<form class="login" id="login" novalidate>'+
     '<label class="f"><span>Mail</span><input type="email" id="lg-mail" autocomplete="username" required></label>'+
-    '<label class="f"><span>Contraseña</span><input type="password" id="lg-pass" autocomplete="current-password" required></label>'+
+    '<label class="f"><span>Contraseña</span><input type="password" id="lg-pass" autocomplete="'+(signup?"new-password":"current-password")+'" required></label>'+
     '<span class="err" id="lg-err" role="alert"></span>'+
-    '<button type="submit" class="b pri" id="lg-go">Ingresar</button>'+
-    '<button type="button" class="linkbtn" id="lg-reset">Olvidé mi contraseña</button></form>');
+    '<button type="submit" class="b pri" id="lg-go">'+(signup?"Crear cuenta":"Ingresar")+'</button>'+
+    '<button type="button" class="linkbtn" id="lg-mode">'+(signup?"Ya tengo cuenta: ingresar":"Es mi primera vez: crear mi cuenta")+'</button>'+
+    (signup?'':'<button type="button" class="linkbtn" id="lg-reset">Olvidé mi contraseña</button>')+'</form>');
 }
 $("#notice").addEventListener("submit",function(e){
   if(e.target.id!=="login")return;
   e.preventDefault();
-  var mail=$("#lg-mail").value.trim(),pass=$("#lg-pass").value,err=$("#lg-err"),go=$("#lg-go");
+  var mail=$("#lg-mail").value.trim(),pass=$("#lg-pass").value,err=$("#lg-err"),go=$("#lg-go"),txt=go.textContent;
   if(!mail||!pass){err.textContent="Completá mail y contraseña.";return;}
-  err.textContent="";go.disabled=true;go.textContent="Ingresando…";
-  auth.signInWithEmailAndPassword(mail,pass).catch(function(x){
-    go.disabled=false;go.textContent="Ingresar";
-    err.textContent=AUTHMSG[x&&x.code]||"No se pudo ingresar. Probá de nuevo.";
+  err.textContent="";go.disabled=true;go.textContent=signup?"Creando…":"Ingresando…";
+  (signup?auth.createUserWithEmailAndPassword(mail,pass):auth.signInWithEmailAndPassword(mail,pass)).catch(function(x){
+    go.disabled=false;go.textContent=txt;
+    err.textContent=AUTHMSG[x&&x.code]||(signup?"No se pudo crear la cuenta. Probá de nuevo.":"No se pudo ingresar. Probá de nuevo.");
   });
 });
 $("#notice").addEventListener("click",function(e){
+  if(e.target.id==="lg-mode"){
+    var keep=$("#lg-mail").value;signup=!signup;showLogin();$("#lg-mail").value=keep;return;
+  }
   if(e.target.id!=="lg-reset")return;
   var mail=$("#lg-mail").value.trim(),err=$("#lg-err");
   if(!mail){err.textContent="Escribí tu mail arriba y volvé a tocar acá.";return;}
@@ -823,7 +1033,17 @@ function start(){
   }
   firebase.initializeApp(FIREBASE_CONFIG);
   auth=firebase.auth();
-  auth.onAuthStateChanged(function(u){if(u)start();else if(!started)showLogin();});
+  auth.onAuthStateChanged(function(u){
+    if(!u){if(!started)showLogin();return;}
+    if(started)return;
+    me=String(u.email||"").toLowerCase();
+    showNotice('<p>Cargando…</p>');
+    db=firebase.firestore();
+    db.doc("plan/config").get().then(function(){start();},function(e){
+      if(e&&e.code==="permission-denied")startAthlete();
+      else{$("#logout").hidden=false;showNotice('<p>No se pudo acceder a los datos. Revisá tu conexión y volvé a abrir la app.</p>');}
+    });
+  });
 })();
 })();
 </script>
