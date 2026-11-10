@@ -120,6 +120,29 @@ button.b:disabled{opacity:.4;cursor:default}
 .login{display:flex;flex-direction:column;gap:12px;width:100%;max-width:340px}
 .login .err{color:var(--warn);font-size:.88rem;min-height:1.2em}
 .linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-size:.88rem;cursor:pointer;text-decoration:underline;text-align:left}
+/* planilla de sesión */
+.sx{border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.shead{background:var(--accent);color:var(--accent-fg);font-family:var(--display);font-weight:600;font-size:1.1rem;text-transform:uppercase;letter-spacing:.05em;padding:8px 12px}
+.smeta{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.9rem;font-variant-numeric:tabular-nums}
+.smeta span{color:var(--muted)} .smeta b{color:var(--fg)}
+.srow{display:grid;grid-template-columns:150px minmax(0,1fr);border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.slab{background:var(--sunk);padding:10px 12px;font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.06em;display:flex;flex-direction:column;gap:6px;min-width:0}
+.slab input{font:400 .85rem var(--body);letter-spacing:0;padding:6px 8px}
+.sbody{padding:10px 12px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sbreak{background:var(--sunk);color:var(--muted);font-size:.76rem;text-transform:uppercase;letter-spacing:.08em;padding:6px 12px;border-bottom:1px solid var(--line);text-align:center}
+.exlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:6px 14px}
+.exlist.one{grid-template-columns:minmax(0,1fr)}
+.ex{display:grid;grid-template-columns:minmax(0,1fr) 84px;gap:6px}
+.ex input,.sbody textarea,.sbody input{padding:6px 8px}
+.circs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.circ{display:flex;flex-direction:column;gap:8px;min-width:0}
+.chead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mini{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);font-weight:600}
+.mini input[type=text]{width:90px}
+.mini input[type=date]{width:150px}
+.grps{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+@media (max-width:640px){ .srow{grid-template-columns:minmax(0,1fr)} }
 /* wellness */
 .wq{display:flex;flex-direction:column;gap:6px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .wq .qt{font-family:var(--display);font-weight:600;font-size:1.2rem}
@@ -236,7 +259,7 @@ var FIREBASE_CONFIG = {
     <section id="sec-grid">
       <div>
         <h2>Semana a semana</h2>
-        <p class="muted">Tocá una celda para abrir arriba esa semana de esa categoría. El número es la carga planificada.</p>
+        <p class="muted">Tocá una celda para abrir arriba ese microciclo de esa categoría. El número es la carga planificada.</p>
       </div>
       <div class="scroll" id="gridwrap"></div>
       <div class="legend small muted" id="legend"></div>
@@ -387,6 +410,60 @@ function renderGrid(){
   lg+='<span>· El color de la celda es la fase; más intenso, más carga.</span>';
   $("#legend").innerHTML=lg;
 }
+/* ---------- sesiones del microciclo ---------- */
+var selS=null,EXB=["mov","act","c1","c2"],DAYN=["dom","lun","mar","mié","jue","vie","sáb"];
+function isoD(d){return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0")+"-"+String(d.getUTCDate()).padStart(2,"0");}
+function diaCorto(iso){var d=parseD(iso);return DAYN[d.getUTCDay()]+" "+d.getUTCDate()+"/"+(d.getUTCMonth()+1);}
+function newSess(date,nota,id){return {id:id||("s"+Date.now().toString(36)+Math.random().toString(36).slice(2,5)),date:date||"",nota:nota||"",ev:"",mov:[],movS:"",act:[],actS:"",fza:"",c1:[],c1S:"",c2:[],c2S:"",tec:"",metT:"",met:"",g:["","","","",""],vol:"",tpo:""};}
+function sessOf(w,start){
+  if(w&&Array.isArray(w.sessions))return w.sessions;
+  var out=[];
+  DAYS.forEach(function(x,i){var t=w&&w.days&&w.days[x[0]];if(t&&String(t).trim())out.push(newSess(isoD(addD(start,i)),String(t),"m"+x[0]));});
+  return out;
+}
+function ensureSess(c,k,start){
+  var w=ensureW(c,k);
+  if(!Array.isArray(w.sessions)){w.sessions=sessOf(w,start);w.days={};}
+  return w.sessions;
+}
+function sessBefore(c,ws,wi){var n=0;for(var i=0;i<wi;i++)n+=sessOf(getW(c,ws[i].key),ws[i].start).length;return n;}
+function curWeek(){return weeks().filter(function(w){return w.key===sel.w;})[0]||null;}
+function findSess(id){var wk=curWeek();if(!wk)return null;return ensureSess(sel.c,sel.w,wk.start).filter(function(x){return x.id===id;})[0]||null;}
+function exRow(sid,b,i,r,dis){
+  return '<div class="ex" data-i="'+i+'"><input type="text" id="x-'+sid+'-'+b+'-'+i+'-e" data-k="e" value="'+esc(r.e||"")+'" placeholder="Ejercicio" aria-label="Ejercicio"'+dis+'>'+
+    '<input type="text" id="x-'+sid+'-'+b+'-'+i+'-r" data-k="r" value="'+esc(r.r||"")+'" placeholder="Reps" aria-label="Repeticiones"'+dis+'></div>';
+}
+function exList(x,b,dis,one){
+  var arr=Array.isArray(x[b])?x[b]:[],n=arr.length+(dis?0:1),h='<div class="exlist'+(one?" one":"")+'" data-b="'+b+'">';
+  for(var i=0;i<n;i++)h+=exRow(x.id,b,i,arr[i]||{},dis);
+  if(dis&&!arr.length)h+='<span class="muted small">–</span>';
+  return h+'</div>';
+}
+function mini(x,f,label,dis){return '<label class="mini">'+label+' <input type="text" id="x-'+x.id+'-'+f+'" data-sf="'+f+'" value="'+esc(x[f]||"")+'"'+dis+'></label>';}
+function srow(lab,body){return '<div class="srow"><div class="slab">'+lab+'</div><div class="sbody">'+body+'</div></div>';}
+function sessHtml(x,n,wi,w,dis){
+  var id=esc(x.id),g=Array.isArray(x.g)?x.g:[];
+  var h='<div class="sx" data-s="'+id+'"><div class="shead">Sesión '+n+' · Temporada '+esc(S.config.club||"")+'</div>';
+  h+='<div class="smeta"><label class="mini">Fecha <input type="date" id="x-'+id+'-date" data-sf="date" value="'+esc(x.date||"")+'"'+dis+'></label>'+
+     '<span>Meso <b>'+(w.pi+1)+'</b></span><span>Micro <b>'+(wi+1)+'</b></span><span>Sesión <b>'+n+'</b></span><span>Período <b>'+esc(w.phase.name||"")+'</b></span></div>';
+  h+=srow('Evaluación','<input type="text" id="x-'+id+'-ev" data-sf="ev" value="'+esc(x.ev||"")+'" placeholder="Test o registro del día, si hay" aria-label="Evaluación"'+dis+'>');
+  h+=srow('Movilidad',exList(x,"mov",dis)+'<div>'+mini(x,"movS","Series",dis)+'</div>');
+  h+=srow('Activación',exList(x,"act",dis)+'<div>'+mini(x,"actS","Series",dis)+'</div>');
+  h+=srow('Fuerza<input type="text" id="x-'+id+'-fza" data-sf="fza" value="'+esc(x.fza||"")+'" placeholder="Preventiva, gym, cancha…" aria-label="Tipo de fuerza"'+dis+'>',
+    '<div class="circs"><div class="circ"><div class="chead"><b>Circuito 1</b>'+mini(x,"c1S","Vueltas",dis)+'</div>'+exList(x,"c1",dis,true)+'</div>'+
+    '<div class="circ"><div class="chead"><b>Circuito 2</b>'+mini(x,"c2S","Vueltas",dis)+'</div>'+exList(x,"c2",dis,true)+'</div></div>');
+  h+='<div class="sbreak">Hidratación + preparación técnica: canilleras, bucal, botines, palo</div>';
+  h+=srow('Técnico','<textarea id="x-'+id+'-tec" data-sf="tec" placeholder="Ejercicios, reducidos y tareas por grupo" aria-label="Técnico"'+dis+'>'+esc(x.tec||"")+'</textarea>');
+  h+='<div class="sbreak">Hidratación + cambio de calzado</div>';
+  var gh='<div class="grps">';
+  for(var i=0;i<5;i++)gh+='<label class="f"><span>G'+(i+1)+'</span><input type="text" id="x-'+id+'-g'+i+'" data-g="'+i+'" value="'+esc(g[i]||"")+'" placeholder="Metros"'+dis+'></label>';
+  gh+='</div>';
+  h+=srow('Metabólico<input type="text" id="x-'+id+'-metT" data-sf="metT" value="'+esc(x.metT||"")+'" placeholder="Glucólisis rápida 90 %" aria-label="Tipo de metabólico"'+dis+'>',
+    '<textarea id="x-'+id+'-met" data-sf="met" style="min-height:64px" placeholder="Pasadas, pausas, bloques y macro" aria-label="Detalle del metabólico"'+dis+'>'+esc(x.met||"")+'</textarea>'+gh+
+    '<div class="row">'+mini(x,"vol","Volumen total",dis)+mini(x,"tpo","Tiempo total",dis)+'</div>');
+  h+=srow('Notas','<textarea id="x-'+id+'-nota" data-sf="nota" style="min-height:56px" aria-label="Notas de la sesión"'+dis+'>'+esc(x.nota||"")+'</textarea>');
+  return h+'</div>';
+}
 function renderEditor(){
   var el=$("#sec-editor"),ws=weeks(),cats=S.config.cats||[];
   fixSel(ws);
@@ -394,7 +471,7 @@ function renderEditor(){
   ws.forEach(function(w,i){if(w.key===sel.w)wi=i;});
   if(!cat||wi<0){el.innerHTML="";return;}
   var w=ws[wi],d=getW(cat.id,w.key),l=Math.max(0,Math.min(5,+d.load||0)),dis=canWrite?"":" disabled";
-  var h='<h2>La semana</h2><div class="editor"><div class="edhead"><div class="t">'+
+  var h='<h2>El microciclo</h2><div class="editor"><div class="edhead"><div class="t">'+
     '<h3>'+esc(cat.name)+' · Semana '+(wi+1)+'</h3>'+
     '<p class="dates">'+fmt(w.start)+" – "+fmt(addD(w.start,6),true)+'</p>'+
     '<p class="small '+tone(w.phase,w.pi)+'"><span class="chip"></span> '+esc(w.phase.name||"Fase")+' (semana '+(w.i+1)+' de '+nWeeks(w.phase)+')</p></div>'+
@@ -406,11 +483,24 @@ function renderEditor(){
   for(var i=1;i<=5;i++)h+='<button type="button" data-load="'+i+'" aria-pressed="'+(l===i)+'" title="'+LOADTXT[i]+'"'+dis+'>'+i+'</button>';
   h+='</div><span class="small muted">'+LOADTXT[l]+'</span></div>';
   h+='<label class="f"><span>Objetivo de la semana</span><input type="text" id="f-focus" value="'+esc(d.focus||"")+'" placeholder="Qué se busca esta semana"'+dis+'></label>';
-  h+='<div class="days">';
-  DAYS.forEach(function(x){
-    h+='<label class="f"><span>'+x[1]+'</span><textarea id="d-'+x[0]+'" data-day="'+x[0]+'" placeholder="Sin sesión"'+dis+'>'+esc((d.days&&d.days[x[0]])||"")+'</textarea></label>';
+  var ss=canWrite?ensureSess(cat.id,w.key,w.start):sessOf(d,w.start);
+  var order=ss.map(function(x,i){return {x:x,i:i};}).sort(function(p,q){
+    var da=p.x.date||"",dq=q.x.date||"";return da<dq?-1:da>dq?1:p.i-q.i;}).map(function(o){return o.x;});
+  if(!order.some(function(x){return x.id===selS;}))selS=order.length?order[0].id:null;
+  var base=sessBefore(cat.id,ws,wi);
+  h+='<div><span class="lab">Sesiones del microciclo '+(wi+1)+'</span></div><div class="tabs" role="group" aria-label="Sesiones">';
+  order.forEach(function(x,i){
+    h+='<button type="button" class="tab" data-sess="'+esc(x.id)+'" aria-pressed="'+(x.id===selS)+'">Sesión '+(base+i+1)+(x.date?' <span class="n">'+esc(diaCorto(x.date))+'</span>':'')+'</button>';
   });
+  if(canWrite)h+='<button type="button" class="b" data-act="add-sess">Agregar sesión</button>';
   h+='</div>';
+  if(!order.length)h+='<p class="muted">Este microciclo todavía no tiene sesiones.'+(canWrite?' Tocá “Agregar sesión” para armar la primera.':'')+'</p>';
+  var cur=order.filter(function(x){return x.id===selS;})[0];
+  if(cur){
+    if(canWrite)EXB.forEach(function(k){if(Array.isArray(cur[k]))cur[k]=cur[k].filter(function(r){return r&&(r.e||r.r);});});
+    h+=sessHtml(cur,base+order.indexOf(cur)+1,wi,w,dis);
+    if(canWrite)h+='<div class="row"><button type="button" class="b" data-act="dup-sess">Duplicar sesión</button><button type="button" class="b danger" data-act="del-sess">Quitar sesión</button></div>';
+  }
   if(canWrite){
     h+='<div class="row"><button type="button" class="b" data-act="copy-next"'+(wi===ws.length-1?" disabled":"")+'>Copiar a la semana siguiente</button>'+
        '<button type="button" class="b" data-act="copy-cats"'+(cats.length<2?" disabled":"")+'>Copiar a todas las categorías</button>'+
@@ -566,13 +656,25 @@ $("#gridwrap").addEventListener("click",function(e){
 $("#sec-editor").addEventListener("input",function(e){
   if(!canWrite||!sel.c||!sel.w)return;
   var t=e.target,w=ensureW(sel.c,sel.w);
-  if(t.id==="f-focus")w.focus=t.value;
-  else if(t.dataset.day)w.days[t.dataset.day]=t.value;
-  else return;
+  if(t.id==="f-focus"){w.focus=t.value;dirty("cat:"+sel.c);return;}
+  var box=t.closest("[data-s]");if(!box)return;
+  var x=findSess(box.dataset.s);if(!x)return;
+  if(t.dataset.sf){if(t.dataset.sf==="date"&&!t.value)return;x[t.dataset.sf]=t.value;}
+  else if(t.dataset.g!=null){if(!Array.isArray(x.g))x.g=["","","","",""];x.g[+t.dataset.g]=t.value;}
+  else if(t.dataset.k){
+    var row=t.closest(".ex"),list=t.closest(".exlist"),bk=list.dataset.b,i=+row.dataset.i;
+    if(!Array.isArray(x[bk]))x[bk]=[];
+    if(i>=x[bk].length){
+      while(x[bk].length<=i)x[bk].push({e:"",r:""});
+      list.insertAdjacentHTML("beforeend",exRow(x.id,bk,i+1,{},""));
+    }
+    x[bk][i][t.dataset.k]=t.value;
+  }else return;
   dirty("cat:"+sel.c);
 });
 $("#sec-editor").addEventListener("change",function(e){
   if(e.target.id==="f-focus")renderGrid();
+  else if(e.target.dataset.sf==="date"){var fid=e.target.id;renderEditor();var nd=document.getElementById(fid);if(nd)nd.focus();}
   else if(e.target.id==="ed-cat"){sel.c=e.target.value;edMsg="";renderGrid();renderEditor();var n=$("#ed-cat");if(n)n.focus();}
 });
 $("#sec-editor").addEventListener("click",function(e){
@@ -583,14 +685,33 @@ $("#sec-editor").addEventListener("click",function(e){
     var w=ensureW(sel.c,sel.w),v=+b.dataset.load;w.load=(w.load===v)?0:v;
     dirty("cat:"+sel.c);renderGrid();renderEditor();return;
   }
+  if(b.dataset.sess){selS=b.dataset.sess;renderEditor();return;}
   var act=b.dataset.act;
+  if((act==="add-sess"||act==="dup-sess"||act==="del-sess")&&canWrite&&wi>=0){
+    var ss=ensureSess(sel.c,sel.w,ws[wi].start),cur=ss.filter(function(x){return x.id===selS;})[0];
+    if(act==="add-sess"){
+      var last=ss.map(function(x){return x.date||"";}).sort().pop(),end=isoD(addD(ws[wi].start,6));
+      var nd=last?isoD(addD(parseD(last),1)):isoD(ws[wi].start);if(nd>end)nd=end;
+      var ns=newSess(nd);ss.push(ns);selS=ns.id;
+    }else if(act==="dup-sess"&&cur){
+      var cp=clone(cur);cp.id=newSess().id;if(cp.date)cp.date=isoD(addD(parseD(cp.date),1));ss.push(cp);selS=cp.id;
+    }else if(act==="del-sess"&&cur){
+      if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Quitar";return;}
+      ss.splice(ss.indexOf(cur),1);selS=null;
+    }else return;
+    dirty("cat:"+sel.c);renderEditor();return;
+  }
   if(act==="prev"&&wi>0){sel.w=ws[wi-1].key;edMsg="";renderGrid();renderEditor();}
   else if(act==="next"&&wi<ws.length-1){sel.w=ws[wi+1].key;edMsg="";renderGrid();renderEditor();}
   else if(act==="copy-next"&&canWrite&&wi<ws.length-1){
-    ensureW(sel.c,ws[wi+1].key);S.cats[sel.c].weeks[ws[wi+1].key]=clone(ensureW(sel.c,sel.w));
+    ensureSess(sel.c,sel.w,ws[wi].start);
+    var nx=clone(ensureW(sel.c,sel.w));
+    (nx.sessions||[]).forEach(function(x){if(x.date)x.date=isoD(addD(parseD(x.date),7));});
+    ensureW(sel.c,ws[wi+1].key);S.cats[sel.c].weeks[ws[wi+1].key]=nx;
     dirty("cat:"+sel.c);edMsg="Copiada a la semana "+(wi+2)+".";renderGrid();renderEditor();
   }
   else if(act==="copy-cats"&&canWrite){
+    if(wi>=0)ensureSess(sel.c,sel.w,ws[wi].start);
     var src=clone(ensureW(sel.c,sel.w));
     (S.config.cats||[]).forEach(function(c){
       if(c.id===sel.c)return;ensureW(c.id,sel.w);S.cats[c.id].weeks[sel.w]=clone(src);dirty("cat:"+c.id);
