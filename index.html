@@ -73,7 +73,7 @@ body[data-view="inicio"] .brandtxt h1{font-size:clamp(2rem,7vw,3.6rem)}
 .calhead .mes{font-family:var(--display);font-size:1.3rem;font-weight:600;text-transform:capitalize;min-width:170px;text-align:center}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cal .dh{font-family:var(--display);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0}
-.cal button{min-height:68px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:5px 6px;border:1px solid var(--line);border-top:4px solid var(--tone,var(--line));background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer;font:inherit;text-align:left;min-width:0;overflow:hidden}
+.cal button{min-height:68px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:5px 6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer;font:inherit;text-align:left;min-width:0;overflow:hidden}
 .cal button .n{font-family:var(--display);font-weight:600;font-size:1.05rem;line-height:1}
 .cal button.fin{background:var(--sunk)}
 .cal button.hoy{outline:2px solid var(--accent);outline-offset:-2px}
@@ -88,6 +88,13 @@ body[data-view="inicio"] .brandtxt h1{font-size:clamp(2rem,7vw,3.6rem)}
 .dayed .opts{display:flex;gap:8px;flex-wrap:wrap}
 .dayed .opts button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
 @media (max-width:520px){.cal{gap:2px}.cal button{min-height:54px;padding:4px 3px}.cal .ev{font-size:.56rem;padding:1px 2px;letter-spacing:0}}
+.top2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:stretch}
+.hoybox{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--accent);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.hoybox .lab{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.hoybox ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.hoybox li b{font-family:var(--display);font-size:1.15rem;text-transform:uppercase;letter-spacing:.02em;margin-right:8px}
+.hoybox li span{color:var(--muted)}
+.hoybox a{font-size:.88rem;font-weight:600;color:var(--accent);margin-top:auto}
 .menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .menu a{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:10px;padding:18px 20px;text-decoration:none;color:var(--fg)}
 .menu a:hover{border-color:var(--accent)}
@@ -312,10 +319,14 @@ var FIREBASE_CONFIG = {
     <section><div><h2>Menú</h2><p class="muted">Elegí a dónde querés ir.</p></div>
     <div class="menu">
       <a href="#planteles" id="nav-planteles" data-view="planteles"><b>Planteles</b><span>Jugadoras por categoría y sus planillas de tests.</span></a>
+      <a href="#horarios" id="nav-horarios" data-view="horarios"><b>Horarios</b><span>Cronograma semanal de entrenamientos de cada categoría.</span></a>
       <a href="#wellness" id="nav-wellness" data-view="wellness"><b>Wellness y RPE</b><span>Respuestas del día de cada jugadora.</span></a>
       <a href="#planificacion" id="nav-planificacion" data-view="planificacion"><b>Planificación</b><span>Sesiones por microciclo, semana a semana y fases.</span></a>
       <a href="#ajustes" id="nav-ajustes" data-view="ajustes"><b>Ajustes</b><span>Horarios, categorías, fases, tests y copia de seguridad.</span></a>
     </div></section>
+    </div>
+    <div class="view" id="view-horarios" hidden>
+    <section id="sec-horarios" class="home"></section>
     </div>
     <div class="view" id="view-planteles" hidden>
     <section id="sec-roster"></section>
@@ -351,7 +362,7 @@ var LOADTXT=["Sin definir","Muy liviana","Liviana","Media","Alta","Muy alta"];
 var db=null,canWrite=true,S={config:null,cats:{}},sel={c:null,w:null},got={config:false,cats:false};
 var timers={},busy={},again={},hadErr=false,edMsg="";
 var pendingImport=null,impMsg="",mailMsg="",me="";
-var P={},selP=null,openCat=null,VIEWS=["inicio","menu","planteles","wellness","planificacion","ajustes"];
+var P={},selP=null,openCat=null,VIEWS=["inicio","menu","horarios","planteles","wellness","planificacion","ajustes"];
 var $=function(s){return document.querySelector(s);};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function clone(o){return JSON.parse(JSON.stringify(o));}
@@ -446,21 +457,19 @@ function calHtml(now){
   var c=S.config,hs=c.horarios||{},cats=c.cats||[],hoy=isoL(now);
   if(cal.y==null){cal.y=now.getFullYear();cal.m=now.getMonth();}
   var tr={};DAYS.forEach(function(d){tr[d[0]]=cats.some(function(k){return hs[k.id]&&hs[k.id][d[0]];});});
-  var ph={};weeks().forEach(function(w){for(var i=0;i<7;i++){var d=addD(w.start,i);ph[d.toISOString().slice(0,10)]=tone(w.phase,w.pi);}});
   var first=new Date(cal.y,cal.m,1),n=new Date(cal.y,cal.m+1,0).getDate(),off=(first.getDay()+6)%7;
   var h='<div class="calhead"><h2>Calendario</h2><div class="row"><button type="button" class="b ico" data-cal="-1" aria-label="Mes anterior">‹</button><span class="mes">'+MESL[cal.m]+' '+cal.y+'</span><button type="button" class="b ico" data-cal="1" aria-label="Mes siguiente">›</button><button type="button" class="b" data-cal="0">Hoy</button></div></div>';
   h+='<div class="cal">';["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].forEach(function(x){h+='<span class="dh">'+x+'</span>';});
   for(var i=0;i<off;i++)h+='<span></span>';
   for(var d=1;d<=n;d++){
     var dt=new Date(cal.y,cal.m,d),iso=isoL(dt),wd=dt.getDay(),e=evOf(iso);
-    h+='<button type="button" data-day="'+iso+'" class="'+(ph[iso]||"")+(wd===0||wd===6?" fin":"")+(iso===hoy?" hoy":"")+'" aria-pressed="'+(cal.sel===iso)+'" aria-label="'+largo(dt)+(e&&e.tipo?", "+e.tipo:"")+'"><span class="n">'+d+'</span>';
+    h+='<button type="button" data-day="'+iso+'" class="'+(wd===0||wd===6?"fin":"")+(iso===hoy?" hoy":"")+'" aria-pressed="'+(cal.sel===iso)+'" aria-label="'+largo(dt)+(e&&e.tipo?", "+e.tipo:"")+'"><span class="n">'+d+'</span>';
     if(e&&e.tipo)h+='<span class="ev '+e.tipo+'">'+(e.tipo==="partido"?"Partido":"Libre")+'</span>';
     else if(e&&e.nota)h+='<span class="ev" style="background:var(--line)">Nota</span>';
     if(tr[DKEY[wd]])h+='<span class="tr" title="Hay entrenamiento"></span>';
     h+='</button>';
   }
   h+='</div><div class="callegend"><span><i class="tr" style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block"></i>Entrenamiento</span><span><i class="ev partido" style="font-style:normal;font-size:.68rem;font-weight:700;border-radius:4px;padding:1px 5px;background:var(--accent2);color:#fff">PARTIDO</i></span><span><i style="font-style:normal;font-size:.68rem;font-weight:700;border-radius:4px;padding:1px 5px;background:var(--t4);color:#06281a">LIBRE</i></span>';
-  (c.phases||[]).forEach(function(p,i){h+='<span class="'+tone(p,i)+'"><i class="chip"></i>'+esc(p.name||"Fase")+'</span>';});
   h+='</div>';
   if(cal.sel){
     var sd=new Date(+cal.sel.slice(0,4),+cal.sel.slice(5,7)-1,+cal.sel.slice(8,10)),se=evOf(cal.sel)||{},t=se.tipo||"";
@@ -476,25 +485,31 @@ function calHtml(now){
 function renderHome(){
   var el=$("#sec-home");if(!el||!S.config)return;
   var c=S.config,hs=c.horarios||{},cats=c.cats||[],now=new Date(),dk=DKEY[now.getDay()];
-  var h='<p class="today">'+largo(now)+' de '+now.getFullYear()+'</p>'+findeHtml(now);
   var any=cats.some(function(k){return DAYS.some(function(d){return hs[k.id]&&hs[k.id][d[0]];});});
   var tod=cats.filter(function(k){return hs[k.id]&&hs[k.id][dk];});
-  h+='<div><h2>Cronograma</h2></div>';
-  if(!any)h+='<p class="muted">Todavía no hay horarios cargados. Cargalos en Menú → Ajustes → Horarios de entrenamiento.</p>';
+  var h='<p class="today">'+largo(now)+' de '+now.getFullYear()+'</p><div class="top2"><div class="hoybox"><span class="lab">Hoy entrenan</span>';
+  if(!any)h+='<span class="muted">Todavía no hay horarios cargados.</span>'+(canWrite?'<a href="#ajustes" data-view="ajustes">Cargar horarios</a>':'');
   else{
-    h+='<p><b>Hoy entrenan:</b> '+(tod.length?'':'nadie.')+'</p>';
-    if(tod.length){h+='<div class="todaycards">';tod.forEach(function(k){h+='<div class="tcard"><b>'+esc(k.name)+'</b><span>'+esc(hs[k.id][dk])+'</span></div>';});h+='</div>';}
-    h+='<div class="scroll"><table class="sched"><thead><tr><th scope="col">Categoría</th>';
-    DAYS.forEach(function(d){h+='<th scope="col"'+(d[0]===dk?' class="now"':'')+'>'+d[1]+'</th>';});
-    h+='</tr></thead><tbody>';
-    cats.forEach(function(k){
-      h+='<tr><td>'+esc(k.name)+'</td>';
-      DAYS.forEach(function(d){var v=hs[k.id]&&hs[k.id][d[0]];h+='<td'+(d[0]===dk?' class="now"':'')+'>'+(v?esc(v):'–')+'</td>';});
-      h+='</tr>';
-    });
-    h+='</tbody></table></div>';
+    if(tod.length){h+='<ul>';tod.forEach(function(k){h+='<li><b>'+esc(k.name)+'</b><span>'+esc(hs[k.id][dk])+'</span></li>';});h+='</ul>';}
+    else h+='<span class="muted">Hoy no hay entrenamientos.</span>';
+    h+='<a href="#horarios" data-view="horarios">Ver horarios de la semana</a>';
   }
+  h+='</div>'+findeHtml(now)+'</div>';
   el.innerHTML=h+calHtml(now);
+  var hh='<div><h2>Horarios de la semana</h2><p class="muted">Cronograma de entrenamientos de cada categoría.'+(canWrite?' Se editan en Ajustes.':'')+'</p></div>';
+  if(!any)hh+='<p class="muted">Todavía no hay horarios cargados.'+(canWrite?' Cargalos en Menú → Ajustes → Horarios de entrenamiento.':'')+'</p>';
+  else{
+    hh+='<div class="scroll"><table class="sched"><thead><tr><th scope="col">Categoría</th>';
+    DAYS.forEach(function(d){hh+='<th scope="col"'+(d[0]===dk?' class="now"':'')+'>'+d[1]+'</th>';});
+    hh+='</tr></thead><tbody>';
+    cats.forEach(function(k){
+      hh+='<tr><td>'+esc(k.name)+'</td>';
+      DAYS.forEach(function(d){var v=hs[k.id]&&hs[k.id][d[0]];hh+='<td'+(d[0]===dk?' class="now"':'')+'>'+(v?esc(v):'–')+'</td>';});
+      hh+='</tr>';
+    });
+    hh+='</tbody></table></div>';
+  }
+  $("#sec-horarios").innerHTML=hh;
 }
 function setEv(iso,k,v){
   var c=S.config;c.eventos=c.eventos||{};var e=c.eventos[iso]||{tipo:"",nota:""};e[k]=v;
