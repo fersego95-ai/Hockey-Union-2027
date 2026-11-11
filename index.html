@@ -73,7 +73,7 @@ body[data-view="inicio"] .brandtxt h1{font-size:clamp(2rem,7vw,3.6rem)}
 .calhead .mes{font-family:var(--display);font-size:1.3rem;font-weight:600;text-transform:capitalize;min-width:170px;text-align:center}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
 .cal .dh{font-family:var(--display);font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:center;padding:2px 0}
-.cal button{min-height:68px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:5px 6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer;font:inherit;text-align:left;min-width:0;overflow:hidden}
+.cal button{min-height:68px;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:5px 6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;cursor:pointer;font:inherit;text-align:left;min-width:0;position:relative}
 .cal button .n{font-family:var(--display);font-weight:600;font-size:1.05rem;line-height:1}
 .cal button.fin{background:var(--sunk)}
 .cal button.hoy{outline:2px solid var(--accent);outline-offset:-2px}
@@ -82,6 +82,11 @@ body[data-view="inicio"] .brandtxt h1{font-size:clamp(2rem,7vw,3.6rem)}
 .cal .ev{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;border-radius:4px;padding:1px 5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cal .ev.partido{background:var(--accent2);color:#fff}.cal .ev.libre{background:var(--t4);color:#06281a}
 .cal .tr{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.cal .chk{position:absolute;top:4px;right:5px}
+.chk{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:#1E9E5A;color:#fff;font-weight:700;font-size:.9rem;line-height:1}
+.cal button.par{border-color:#1E9E5A}
+.cal button[data-tip]:hover::after,.cal button[data-tip]:focus-visible::after{content:attr(data-tip);position:absolute;z-index:15;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);font-size:.82rem;font-weight:600;padding:6px 10px;border-radius:6px;width:max-content;max-width:240px;white-space:normal;text-align:center;pointer-events:none;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+@media (max-width:520px){.cal .chk{width:17px;height:17px;font-size:.7rem;top:3px;right:3px}}
 .callegend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--muted);align-items:center}
 .callegend span{display:inline-flex;align-items:center;gap:6px}
 .dayed{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
@@ -454,17 +459,6 @@ var cal={y:null,m:null,sel:null};
 function isoL(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function evOf(iso){var e=(S.config.eventos||{})[iso];return e&&(e.tipo||e.nota)?e:null;}
 function largo(d){return DLONG[d.getDay()]+" "+d.getDate()+" de "+MESL[d.getMonth()];}
-function findeHtml(now){
-  var sat=new Date(now.getFullYear(),now.getMonth(),now.getDate()),wd=sat.getDay();
-  sat.setDate(sat.getDate()+(wd===0?-1:6-wd));
-  var sun=new Date(sat.getFullYear(),sat.getMonth(),sat.getDate()+1),es=[[sat,evOf(isoL(sat))],[sun,evOf(isoL(sun))]];
-  var par=es.filter(function(x){return x[1]&&x[1].tipo==="partido";}),lib=es.filter(function(x){return x[1]&&x[1].tipo==="libre";});
-  var cls=par.length?"partido":lib.length?"libre":"",h='<div class="wk '+cls+'"><span class="lab">Este fin de semana · sáb '+sat.getDate()+' y dom '+sun.getDate()+' de '+MESL[sun.getMonth()]+'</span>';
-  if(par.length){h+='<b>Hay partido</b>';par.forEach(function(x){h+='<span>'+largo(x[0]).replace(/^./,function(ch){return ch.toUpperCase();})+(x[1].nota?' · '+esc(x[1].nota):'')+'</span>';});}
-  else if(lib.length){h+='<b>Fin de semana libre</b>';lib.forEach(function(x){if(x[1].nota)h+='<span>'+esc(x[1].nota)+'</span>';});}
-  else h+='<b>Sin definir</b><span class="muted">'+(canWrite?'Tocá el sábado o el domingo en el calendario para marcar partido o libre.':'Todavía no se cargó.')+'</span>';
-  return h+'</div>';
-}
 function calHtml(now){
   var c=S.config,hs=c.horarios||{},cats=c.cats||[],hoy=isoL(now);
   if(cal.y==null){cal.y=now.getFullYear();cal.m=now.getMonth();}
@@ -475,23 +469,24 @@ function calHtml(now){
   for(var i=0;i<off;i++)h+='<span></span>';
   for(var d=1;d<=n;d++){
     var dt=new Date(cal.y,cal.m,d),iso=isoL(dt),wd=dt.getDay(),e=evOf(iso);
-    h+='<button type="button" data-day="'+iso+'" class="'+(wd===0||wd===6?"fin":"")+(iso===hoy?" hoy":"")+'" aria-pressed="'+(cal.sel===iso)+'" aria-label="'+largo(dt)+(e&&e.tipo?", "+e.tipo:"")+'"><span class="n">'+d+'</span>';
-    if(e&&e.tipo)h+='<span class="ev '+e.tipo+'">'+(e.tipo==="partido"?"Partido":"Libre")+'</span>';
-    else if(e&&e.nota)h+='<span class="ev" style="background:var(--line)">Nota</span>';
+    var par=e&&e.tipo==="partido",tip=par?"Partido"+(e.nota?": "+e.nota:""):"";
+    h+='<button type="button" data-day="'+iso+'" class="'+(wd===0||wd===6?"fin":"")+(iso===hoy?" hoy":"")+(par?" par":"")+'" aria-pressed="'+(cal.sel===iso)+'" aria-label="'+largo(dt)+(par?", "+esc(tip):"")+'"'+(par?' data-tip="'+esc(tip)+'"':'')+'><span class="n">'+d+'</span>';
+    if(par)h+='<span class="chk" aria-hidden="true">✓</span>';
     if(tr[DKEY[wd]])h+='<span class="tr" title="Hay entrenamiento"></span>';
     h+='</button>';
   }
-  h+='</div><div class="callegend"><span><i class="tr" style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block"></i>Entrenamiento</span><span><i class="ev partido" style="font-style:normal;font-size:.68rem;font-weight:700;border-radius:4px;padding:1px 5px;background:var(--accent2);color:#fff">PARTIDO</i></span><span><i style="font-style:normal;font-size:.68rem;font-weight:700;border-radius:4px;padding:1px 5px;background:var(--t4);color:#06281a">LIBRE</i></span>';
+  h+='</div><div class="callegend"><span><i style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent)"></i>Entrenamiento</span><span><i class="chk" style="font-style:normal;position:static">✓</i>Partido (pasá el mouse o tocá el día para ver cuál)</span>';
   h+='</div>';
   if(cal.sel){
     var sd=new Date(+cal.sel.slice(0,4),+cal.sel.slice(5,7)-1,+cal.sel.slice(8,10)),se=evOf(cal.sel)||{},t=se.tipo||"";
     h+='<div class="dayed"><h3>'+largo(sd).replace(/^./,function(ch){return ch.toUpperCase();})+'</h3>';
+    var par2=t==="partido";
     if(canWrite){
-      h+='<div class="opts" role="group" aria-label="Qué hay ese día"><button type="button" class="b" data-ev="partido" aria-pressed="'+(t==="partido")+'">Partido</button><button type="button" class="b" data-ev="libre" aria-pressed="'+(t==="libre")+'">Libre</button><button type="button" class="b" data-ev="" aria-pressed="'+(t==="")+'">Sin marcar</button></div>'+
-         '<label class="f"><span>Detalle (rival, hora, cancha…)</span><input type="text" id="ev-nota" maxlength="200" value="'+esc(se.nota||"")+'" placeholder="Por ejemplo: vs. Atlético, 15:00, de local"></label>';
-    }else h+='<p>'+(t==="partido"?"Partido":t==="libre"?"Libre":"Sin marcar")+(se.nota?' · '+esc(se.nota):'')+'</p>';
+      h+='<div class="opts" role="group" aria-label="Partido"><button type="button" class="b" data-ev="partido" aria-pressed="'+par2+'">Hay partido</button><button type="button" class="b" data-ev="" aria-pressed="'+(!par2)+'">Sin partido</button></div>'+
+         '<label class="f"><span>Qué partido toca (rival, hora, cancha…)</span><input type="text" id="ev-nota" maxlength="200" value="'+esc(se.nota||"")+'" placeholder="Por ejemplo: vs. Atlético, 15:00, de local"></label>';
+    }else h+='<p>'+(par2?'Partido'+(se.nota?': '+esc(se.nota):''):'Sin partido')+'</p>';
     h+='</div>';
-  }else if(canWrite)h+='<p class="small muted">Tocá un día para marcar si hay partido o es libre.</p>';
+  }else if(canWrite)h+='<p class="small muted">Tocá un día para cargar un partido.</p>';
   return h;
 }
 function renderHome(){
@@ -506,7 +501,7 @@ function renderHome(){
     else h+='<span class="muted">Hoy no hay entrenamientos.</span>';
     h+='<a href="#horarios" data-view="horarios">Ver horarios de la semana</a>';
   }
-  h+='</div>'+findeHtml(now)+'</div>';
+  h+='</div></div>';
   el.innerHTML=h+calHtml(now);
   var hh='<div><h2>Horarios de la semana</h2><p class="muted">Cronograma de entrenamientos de cada categoría.'+(canWrite?' Se editan en Ajustes.':'')+'</p></div>';
   if(!any)hh+='<p class="muted">Todavía no hay horarios cargados.'+(canWrite?' Cargalos en Menú → Ajustes → Horarios de entrenamiento.':'')+'</p>';
