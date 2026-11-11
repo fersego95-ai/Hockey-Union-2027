@@ -1013,6 +1013,9 @@ function showView(v,force){
 }
 $("#app").addEventListener("click",function(e){var a=e.target.closest("a[data-view]");if(a)showView(a.dataset.view,true);});
 window.addEventListener("hashchange",function(){showView();});
+(function(){var br=document.querySelector(".brand");br.setAttribute("role","link");br.setAttribute("tabindex","0");br.setAttribute("title","Ir al inicio");br.style.cursor="pointer";
+  function go(){if($("#app").hidden)return;location.hash="inicio";showView("inicio",true);window.scrollTo(0,0);}
+  br.addEventListener("click",go);br.addEventListener("keydown",function(e){if(e.key==="Enter"){go();}});})();
 
 /* ---------- datos ---------- */
 var slow=null;
