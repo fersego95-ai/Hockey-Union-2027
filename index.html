@@ -95,6 +95,19 @@ body[data-view="inicio"] .brandtxt h1{font-size:clamp(2rem,7vw,3.6rem)}
 .hoybox li b{font-family:var(--display);font-size:1.15rem;text-transform:uppercase;letter-spacing:.02em;margin-right:8px}
 .hoybox li span{color:var(--muted)}
 .hoybox a{font-size:.88rem;font-weight:600;color:var(--accent);margin-top:auto}
+.mwrap{position:relative;display:flex}
+#nav-menu{line-height:inherit;margin:0}
+.nav{align-items:stretch}
+#nav-menu{font-family:var(--display);font-weight:600;font-size:1.15rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);background:none;border:0;border-bottom:3px solid transparent;padding:8px 14px;cursor:pointer}
+#nav-menu:hover,#nav-menu[aria-expanded="true"]{color:var(--fg)}
+#nav-menu[data-on]{color:var(--fg);border-bottom-color:var(--accent2)}
+#nav-menu:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mpop{position:absolute;top:100%;left:0;z-index:20;min-width:230px;margin-top:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:6px;display:flex;flex-direction:column}
+.mpop[hidden]{display:none}
+.nav .mpop a{font-family:var(--body);font-size:1rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--fg);padding:11px 14px;border:0;border-radius:6px}
+.nav .mpop a:hover{background:var(--sunk)}
+.nav .mpop a[aria-current="page"]{background:var(--sunk);color:var(--accent);border:0}
+.nav .mpop a[hidden]{display:none}
 .menu{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .menu a{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:10px;padding:18px 20px;text-decoration:none;color:var(--fg)}
 .menu a:hover{border-color:var(--accent)}
@@ -310,20 +323,19 @@ var FIREBASE_CONFIG = {
   <main id="app" hidden>
     <nav class="nav" aria-label="Secciones">
       <a href="#inicio" id="nav-inicio" data-view="inicio">Inicio</a>
-      <a href="#menu" id="nav-menu" data-view="menu">Menú</a>
+      <div class="mwrap">
+        <button type="button" id="nav-menu" aria-expanded="false" aria-controls="menu-pop">Menú <span aria-hidden="true">▾</span></button>
+        <div id="menu-pop" class="mpop" hidden>
+      <a href="#planteles" id="nav-planteles" data-view="planteles">Planteles</a>
+      <a href="#horarios" id="nav-horarios" data-view="horarios">Horarios</a>
+      <a href="#wellness" id="nav-wellness" data-view="wellness">Wellness y RPE</a>
+      <a href="#planificacion" id="nav-planificacion" data-view="planificacion">Planificación</a>
+      <a href="#ajustes" id="nav-ajustes" data-view="ajustes">Ajustes</a>
+        </div>
+      </div>
     </nav>
     <div class="view" id="view-inicio">
     <section id="sec-home" class="home"></section>
-    </div>
-    <div class="view" id="view-menu" hidden>
-    <section><div><h2>Menú</h2><p class="muted">Elegí a dónde querés ir.</p></div>
-    <div class="menu">
-      <a href="#planteles" id="nav-planteles" data-view="planteles"><b>Planteles</b><span>Jugadoras por categoría y sus planillas de tests.</span></a>
-      <a href="#horarios" id="nav-horarios" data-view="horarios"><b>Horarios</b><span>Cronograma semanal de entrenamientos de cada categoría.</span></a>
-      <a href="#wellness" id="nav-wellness" data-view="wellness"><b>Wellness y RPE</b><span>Respuestas del día de cada jugadora.</span></a>
-      <a href="#planificacion" id="nav-planificacion" data-view="planificacion"><b>Planificación</b><span>Sesiones por microciclo, semana a semana y fases.</span></a>
-      <a href="#ajustes" id="nav-ajustes" data-view="ajustes"><b>Ajustes</b><span>Horarios, categorías, fases, tests y copia de seguridad.</span></a>
-    </div></section>
     </div>
     <div class="view" id="view-horarios" hidden>
     <section id="sec-horarios" class="home"></section>
@@ -362,7 +374,7 @@ var LOADTXT=["Sin definir","Muy liviana","Liviana","Media","Alta","Muy alta"];
 var db=null,canWrite=true,S={config:null,cats:{}},sel={c:null,w:null},got={config:false,cats:false};
 var timers={},busy={},again={},hadErr=false,edMsg="";
 var pendingImport=null,impMsg="",mailMsg="",me="";
-var P={},selP=null,openCat=null,VIEWS=["inicio","menu","horarios","planteles","wellness","planificacion","ajustes"];
+var P={},selP=null,openCat=null,VIEWS=["inicio","horarios","planteles","wellness","planificacion","ajustes"];
 var $=function(s){return document.querySelector(s);};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
 function clone(o){return JSON.parse(JSON.stringify(o));}
@@ -1017,12 +1029,20 @@ $("#notice").addEventListener("click",function(e){
   dirty("config");dirty("cat:c1");renderAll(true);
 });
 
+function menuOpen(o){$("#menu-pop").hidden=!o;$("#nav-menu").setAttribute("aria-expanded",String(o));}
+$("#nav-menu").addEventListener("click",function(e){e.stopPropagation();menuOpen($("#menu-pop").hidden);});
+document.addEventListener("click",function(e){if(!e.target.closest(".mwrap"))menuOpen(false);});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("#menu-pop").hidden){menuOpen(false);$("#nav-menu").focus();}});
 function showView(v,force){
   if(!v)v=(location.hash||"").slice(1);
   if(VIEWS.indexOf(v)<0||(v==="ajustes"&&!canWrite))v="inicio";
   VIEWS.forEach(function(x){$("#view-"+x).hidden=x!==v;});
-  if(v==="inicio"){$("#nav-inicio").setAttribute("aria-current","page");$("#nav-menu").removeAttribute("aria-current");}
-  else{$("#nav-menu").setAttribute("aria-current","page");$("#nav-inicio").removeAttribute("aria-current");}
+  if(v==="inicio"){$("#nav-inicio").setAttribute("aria-current","page");$("#nav-menu").removeAttribute("data-on");}
+  else{$("#nav-menu").setAttribute("data-on","1");$("#nav-inicio").removeAttribute("aria-current");}
+  [].forEach.call(document.querySelectorAll("#menu-pop a"),function(x){if(x.dataset.view===v)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current");});
+  var cur=document.querySelector('#menu-pop a[data-view="'+v+'"]');
+  $("#nav-menu").firstChild.textContent=cur?"Menú · "+cur.textContent.trim()+" ":"Menú ";
+  menuOpen(false);
   document.body.dataset.view=v;
   if(v==="wellness")loadWellness(!!force);
 }
