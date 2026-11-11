@@ -174,6 +174,14 @@ button.b:disabled{opacity:.4;cursor:default}
 .sum{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 16px;font-variant-numeric:tabular-nums}
 .sum b{font-family:var(--display);font-size:1.15rem}
 .low{color:var(--warn);font-weight:700}
+.rtype{display:flex;gap:8px;flex-wrap:wrap}
+.rtype button{flex:1;min-width:130px;padding:12px;font:600 1.05rem var(--display);text-transform:uppercase;letter-spacing:.04em;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;cursor:pointer}
+.rtype button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.rscale{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.rscale button{height:48px;font:600 1.25rem var(--display);border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;cursor:pointer}
+.rscale button[aria-pressed="true"]{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+.rlab{font-family:var(--display);font-size:1.1rem;font-weight:600;min-height:1.6em}
+.rdone{display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
 .wctl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 .wctl label.f{width:auto}
 .sheet td.note{white-space:normal;min-width:180px;max-width:320px}
@@ -1006,11 +1014,15 @@ function loadWellness(force){
   Promise.all(ids.map(function(id){
     var m=P[id].email;
     if(!m)return {id:id,state:"nomail"};
-    return db.doc("atletas/"+m+"/wellness/"+wl.date).get().then(function(sn){
-      return sn.exists?{id:id,state:"ok",d:sn.data()}:{id:id,state:"pend"};
-    },function(){return {id:id,state:"err"};});
+    var rp=RT.map(function(t){return db.doc("atletas/"+m+"/rpe/"+wl.date+"_"+t[0]).get().then(function(r){return r.exists?r.data():null;},function(){return null;});});
+    return Promise.all(rp).then(function(rr){
+      return db.doc("atletas/"+m+"/wellness/"+wl.date).get().then(function(sn){
+        return sn.exists?{id:id,state:"ok",d:sn.data(),g:rr[0],h:rr[1]}:{id:id,state:"pend",g:rr[0],h:rr[1]};
+      },function(){return {id:id,state:"err",g:rr[0],h:rr[1]};});
+    });
   })).then(function(rows){if(wl.key!==key)return;wl.rows=rows;renderWellness();});
 }
+function rpeCell(d){return d?'<td><b>'+esc(d.rpe)+'</b>'+(d.min?' <span class="muted small">· '+esc(d.min)+' min</span>':'')+'</td>':'<td class="muted">–</td>';}
 function renderWellness(){
   var el=$("#sec-wellness"),cats=S.config.cats||[];
   var a=document.activeElement,keep=a&&a.closest&&a.closest("#sec-wellness")?a.id:null;
@@ -1027,7 +1039,7 @@ function renderWellness(){
     h+='<p><b>'+ok+' de '+conMail+'</b> completaron el wellness del '+esc(fechaCorta(wl.date))+'.'+(conMail<wl.rows.length?' '+(wl.rows.length-conMail)+' no tienen mail cargado.':'')+'</p>';
     h+='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Jugadora</th>';
     WQ.forEach(function(q){h+='<th scope="col">'+q[1]+'</th>';});
-    h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Comentario</th></tr></thead><tbody>';
+    h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Comentario</th><th scope="col">RPE gimnasio</th><th scope="col">RPE hockey</th></tr></thead><tbody>';
     wl.rows.forEach(function(r){
       var pl=P[r.id]||{};
       h+='<tr><th scope="row">'+esc(pl.name||"Sin nombre")+'</th>';
@@ -1037,9 +1049,10 @@ function renderWellness(){
       }else{
         h+='<td colspan="'+(WQ.length+3)+'" class="muted">'+(r.state==="nomail"?"Sin mail de ingreso cargado":r.state==="pend"?"Sin responder":"No se pudo leer")+'</td>';
       }
+      h+=rpeCell(r.g)+rpeCell(r.h);
       h+='</tr>';
     });
-    h+='</tbody></table></div><p class="small muted">Escala de 1 a 5, donde 5 es lo mejor. Los valores de 1 y 2 aparecen resaltados en rojo y negrita.</p>';
+    h+='</tbody></table></div><p class="small muted">Wellness: escala de 1 a 5, donde 5 es lo mejor (1 y 2 en rojo). RPE: esfuerzo percibido de 0 a 10, con los minutos si los cargó.</p>';
     el.innerHTML=h;
   }
   if(keep){var n=document.getElementById(keep);if(n)n.focus();}
@@ -1051,7 +1064,35 @@ $("#sec-wellness").addEventListener("change",function(e){
 $("#sec-wellness").addEventListener("click",function(e){if(e.target.id==="wl-refresh")loadWellness(true);});
 
 /* deportista: pantalla principal */
-var A={info:null,fecha:"",ans:{},done:false,edit:false};
+var A={info:null,fecha:"",ans:{},done:false,edit:false,rpe:{},rt:"gimnasio",rv:null,rm:"",rmsg:""};
+var RT=[["gimnasio","Gimnasio"],["hockey","Hockey"]];
+var RL=["Reposo","Muy muy fácil","Fácil","Moderado","Algo duro","Duro","Duro","Muy duro","Muy duro","Casi máximo","Máximo"];
+function selRpe(t){A.rt=t;var d=A.rpe[t];A.rv=d?d.rpe:null;A.rm=d&&d.min!=null?String(d.min):"";}
+function rpeHtml(){
+  var h='<div><h2>Intensidad del entrenamiento</h2><p class="muted">Al terminar cada entrenamiento, ya sea de gimnasio o de hockey, marcá qué tan duro lo sentiste. 0 es reposo y 10 es el esfuerzo máximo.</p></div><div class="editor athbox">';
+  h+='<div class="rtype" role="group" aria-label="Tipo de entrenamiento">';
+  RT.forEach(function(t){h+='<button type="button" data-rt="'+t[0]+'" aria-pressed="'+(A.rt===t[0])+'">'+t[1]+(A.rpe[t[0]]?' ✓':'')+'</button>';});
+  h+='</div><div class="rscale" role="group" aria-label="Esfuerzo percibido de 0 a 10">';
+  for(var i=0;i<=10;i++)h+='<button type="button" data-rpe="'+i+'" aria-pressed="'+(A.rv===i)+'">'+i+'</button>';
+  h+='</div><div class="rlab" id="rpe-lab">'+(A.rv==null?'':A.rv+' · '+RL[A.rv])+'</div>'+
+     '<label class="f" style="max-width:220px"><span>Duración en minutos (opcional)</span><input type="text" inputmode="numeric" id="rpe-min" value="'+esc(A.rm)+'" placeholder="Por ejemplo 60"></label>'+
+     '<span class="small low" id="rpe-err" role="alert">'+esc(A.rmsg)+'</span>'+
+     '<div><button type="button" class="b pri" id="rpe-send" style="padding:12px 28px;font-size:1rem">'+(A.rpe[A.rt]?'Actualizar':'Enviar')+' RPE de '+(A.rt==="hockey"?'hockey':'gimnasio')+'</button></div>';
+  var rows=RT.filter(function(t){return A.rpe[t[0]];});
+  if(rows.length){h+='<div class="rdone"><span class="small muted">Cargado hoy</span>';
+    rows.forEach(function(t){var d=A.rpe[t[0]];h+='<span><b>'+t[1]+':</b> RPE '+esc(d.rpe)+(d.min?' · '+esc(d.min)+' min':'')+'</span>';});h+='</div>';}
+  return h+'</div>';
+}
+function sendRpe(){
+  var err=$("#rpe-err");
+  if(A.rv==null){err.textContent="Elegí un número del 0 al 10.";return;}
+  var doc={fecha:A.fecha,ts:Date.now(),tipo:A.rt,rpe:A.rv},m=parseInt(String(A.rm).replace(/\D/g,""),10);
+  if(!isNaN(m)&&m>0&&m<=600)doc.min=m;
+  var b=$("#rpe-send");b.disabled=true;b.textContent="Enviando…";err.textContent="";
+  db.doc("atletas/"+me+"/rpe/"+A.fecha+"_"+A.rt).set(doc).then(function(){
+    A.rpe[A.rt]=doc;A.rmsg="";renderAth();
+  },function(){b.disabled=false;b.textContent="Enviar";err.textContent="No se pudo enviar. Revisá tu conexión y probá de nuevo.";});
+}
 function athMsg(html){$("#ath").hidden=true;showNotice(html);}
 function startAthlete(){
   started=true;$("#status").hidden=true;$("#logout").hidden=false;$("#range").textContent="";
@@ -1060,7 +1101,9 @@ function startAthlete(){
     A.info=sn.data();A.fecha=isoToday();
     return db.doc("atletas/"+me+"/wellness/"+A.fecha).get().then(function(d){
       if(d.exists){A.ans=clone(d.data());A.done=true;}
-      renderAth();
+      return Promise.all(RT.map(function(t){
+        return db.doc("atletas/"+me+"/rpe/"+A.fecha+"_"+t[0]).get().then(function(r){A.rpe[t[0]]=r.exists?r.data():null;},function(){A.rpe[t[0]]=null;});
+      })).then(function(){selRpe(A.rt);renderAth();});
     });
   }).catch(function(){
     athMsg('<h3>No se pudo abrir tu wellness</h3><p class="muted">Revisá tu conexión y volvé a abrir la app. Si sigue igual, avisale a tu preparador físico.</p>');
@@ -1091,7 +1134,7 @@ function renderAth(){
        '<span class="small low" id="ath-err" role="alert"></span>'+
        '<div><button type="button" class="b pri" id="ath-send" style="padding:12px 28px;font-size:1rem">Enviar</button></div>';
   }
-  el.innerHTML=h+'</div>';
+  el.innerHTML=h+'</div>'+rpeHtml();
 }
 function sendAth(){
   var err=$("#ath-err"),miss=WQ.filter(function(q){return !(+A.ans[q[0]]>=1);});
@@ -1113,10 +1156,16 @@ $("#ath").addEventListener("click",function(e){
     [].forEach.call(b.parentNode.children,function(x){x.setAttribute("aria-pressed",String(x===b));});
   }else if(b.id==="ath-edit"){A.edit=true;renderAth();}
   else if(b.id==="ath-send")sendAth();
+  else if(b.dataset.rt){selRpe(b.dataset.rt);A.rmsg="";renderAth();}
+  else if(b.dataset.rpe!=null){
+    A.rv=+b.dataset.rpe;var er=$("#rpe-err");if(er)er.textContent="";var lb=$("#rpe-lab");if(lb)lb.textContent=A.rv+" · "+RL[A.rv];
+    [].forEach.call(b.parentNode.children,function(x){x.setAttribute("aria-pressed",String(x===b));});
+  }else if(b.id==="rpe-send")sendRpe();
 });
 $("#ath").addEventListener("input",function(e){
   if(e.target.id==="ath-horas")A.ans.horas=e.target.value;
   else if(e.target.id==="ath-nota")A.ans.nota=e.target.value;
+  else if(e.target.id==="rpe-min")A.rm=e.target.value;
 });
 
 /* ---------- ingreso ---------- */
