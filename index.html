@@ -6,6 +6,10 @@
 <link rel="icon" type="image/png" sizes="64x64" href="favicon.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#1D4FA3">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hockey Unión">
 <style>:root{color-scheme:light}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Planificación Hockey Unión</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
@@ -238,6 +242,12 @@ button.b:disabled{opacity:.4;cursor:default}
 .rdone{display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
 .wctl{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 .wctl label.f{width:auto}
+.wmode{display:flex;gap:6px}
+.wmode button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.sheet td.r,.sheet th.r{text-align:right;font-variant-numeric:tabular-nums}
+.sheet td.hoyc,.sheet th.hoyc{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.faltan{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:8px;padding:10px 14px}
+.faltan.ok{border-left-color:#1E9E5A}
 .sheet td.note{white-space:normal;min-width:180px;max-width:320px}
 /* ajustes */
 .settings{display:flex;flex-direction:column;gap:28px}
@@ -1135,17 +1145,37 @@ function histHtml(pl){
 }
 
 /* cuerpo técnico: solapa Wellness */
-var wl={cat:null,date:null,key:"",rows:null};
+var wl={cat:null,date:null,key:"",rows:null,mode:"dia",wk:null};
+function dLoc(iso){return new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10));}
+function dPlus(iso,n){var d=dLoc(iso);d.setDate(d.getDate()+n);return isoL(d);}
+function lunesDe(iso){var d=dLoc(iso);return dPlus(iso,-((d.getDay()+6)%7));}
+function cargaDe(d){return d&&d.min&&d.rpe!=null?d.rpe*d.min:null;}
+function wlIds(){return Object.keys(P).filter(function(id){return P[id].cat===wl.cat;})
+    .sort(function(a,b){return String(P[a].name||"").localeCompare(String(P[b].name||""),"es");});}
 function loadWellness(force){
   if(!S.config||!db)return;
   var cats=S.config.cats||[];
   if(!cats.some(function(c){return c.id===wl.cat;}))wl.cat=cats.length?cats[0].id:null;
   if(!wl.date)wl.date=isoToday();
-  var key=wl.cat+"|"+wl.date;
+  var key=wl.mode+"|"+wl.cat+"|"+wl.date;
   if(!force&&key===wl.key){renderWellness();return;}
-  wl.key=key;wl.rows=null;renderWellness();
-  var ids=Object.keys(P).filter(function(id){return P[id].cat===wl.cat;})
-    .sort(function(a,b){return String(P[a].name||"").localeCompare(String(P[b].name||""),"es");});
+  wl.key=key;wl.rows=null;wl.wk=null;renderWellness();
+  var ids=wlIds();
+  if(wl.mode==="semana"){
+    var lun=lunesDe(wl.date),desde=dPlus(lun,-7),hasta=dPlus(lun,6);
+    Promise.all(ids.map(function(id){
+      var m=P[id].email;
+      if(!m)return {id:id,state:"nomail"};
+      var q=function(c){return db.collection("atletas/"+m+"/"+c).where("fecha",">=",desde).where("fecha","<=",hasta).get().then(function(sn){return sn.docs.map(function(x){return x.data();});});};
+      return Promise.all([q("rpe"),q("wellness")]).then(function(r){
+        var carga={},sinMin={},resp={};
+        r[0].forEach(function(d){var c=cargaDe(d);if(c==null)sinMin[d.fecha]=true;else carga[d.fecha]=(carga[d.fecha]||0)+c;});
+        r[1].forEach(function(d){resp[d.fecha]=true;});
+        return {id:id,state:"ok",carga:carga,sinMin:sinMin,resp:resp};
+      },function(){return {id:id,state:"err"};});
+    })).then(function(rows){if(wl.key!==key)return;wl.wk={lun:lun,rows:rows};renderWellness();});
+    return;
+  }
   Promise.all(ids.map(function(id){
     var m=P[id].email;
     if(!m)return {id:id,state:"nomail"};
@@ -1157,24 +1187,66 @@ function loadWellness(force){
     });
   })).then(function(rows){if(wl.key!==key)return;wl.rows=rows;renderWellness();});
 }
-function rpeCell(d){return d?'<td><b>'+esc(d.rpe)+'</b>'+(d.min?' <span class="muted small">· '+esc(d.min)+' min</span>':'')+'</td>':'<td class="muted">–</td>';}
+function rpeCell(d){
+  if(!d)return '<td class="muted">–</td>';
+  var c=cargaDe(d);
+  return '<td><b>'+esc(d.rpe)+'</b> <span class="muted small">'+(d.min?'× '+esc(d.min)+' min = </span><b>'+c+'</b>':'· sin minutos</span>')+'</td>';
+}
+function semanaHtml(){
+  var w=wl.wk,hoy=isoToday(),dias=[],prev=[],i;
+  for(i=0;i<7;i++){dias.push(dPlus(w.lun,i));prev.push(dPlus(w.lun,i-7));}
+  var pas=dias.filter(function(d){return d<=hoy;}),pas14=pas.length+7;
+  var h='<p class="muted">Semana del '+esc(fechaCorta(dias[0]))+' al '+esc(fechaCorta(dias[6]))+'. La carga de cada entrenamiento es RPE × minutos; acá se suma por día y por semana.</p>';
+  h+='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Jugadora</th>';
+  ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"].forEach(function(n,k){h+='<th scope="col" class="r'+(dias[k]===hoy?' hoyc':'')+'">'+n+'<small>'+(+dias[k].slice(8))+'</small></th>';});
+  h+='<th scope="col" class="r">Carga<small>de la semana</small></th><th scope="col" class="r">Semana<small>anterior</small></th><th scope="col" class="r">Cambio</th><th scope="col" class="r">Wellness<small>respondidos</small></th><th scope="col" class="r">Respuesta<small>últimos '+pas14+' días</small></th></tr></thead><tbody>';
+  var tot=0,totP=0,n=0;
+  w.rows.forEach(function(r){
+    var pl=P[r.id]||{};
+    h+='<tr><th scope="row">'+esc(pl.name||"Sin nombre")+'</th>';
+    if(r.state!=="ok"){h+='<td colspan="12" class="muted">'+(r.state==="nomail"?"Sin mail de ingreso cargado":"No se pudo leer")+'</td></tr>';return;}
+    var sum=0,sumP=0,rs=0,rs14=0;
+    dias.forEach(function(d){
+      var c=r.carga[d];if(c)sum+=c;
+      h+='<td class="r'+(d===hoy?' hoyc':'')+'">'+(c?c:r.sinMin[d]?'<span class="muted small" title="Cargó RPE sin minutos">s/min</span>':'<span class="muted">–</span>')+'</td>';
+    });
+    prev.forEach(function(d){if(r.carga[d])sumP+=r.carga[d];if(r.resp[d])rs14++;});
+    pas.forEach(function(d){if(r.resp[d]){rs++;rs14++;}});
+    tot+=sum;totP+=sumP;n++;
+    var ch=sumP>0?Math.round((sum-sumP)/sumP*100):null,pc=Math.round(rs14/pas14*100);
+    h+='<td class="r"><b>'+sum+'</b></td><td class="r">'+sumP+'</td><td class="r'+(ch!=null&&ch>30?' low':'')+'">'+(ch==null?'–':(ch>0?'+':'')+ch+'%')+'</td>'+
+       '<td class="r">'+rs+' de '+pas.length+'</td><td class="r'+(pc<50?' low':'')+'">'+pc+'%</td></tr>';
+  });
+  h+='</tbody>';
+  if(n)h+='<tfoot><tr><th scope="row">Promedio del plantel</th><td colspan="7"></td><td class="r">'+Math.round(tot/n)+'</td><td class="r">'+Math.round(totP/n)+'</td><td class="r">'+(totP>0?((tot-totP)/totP>0?'+':'')+Math.round((tot-totP)/totP*100)+'%':'–')+'</td><td colspan="2"></td></tr></tfoot>';
+  return h+'</table></div><p class="small muted">En rojo: carga que subió más de 30% respecto de la semana anterior, y respuesta al wellness por debajo de 50%. «s/min» es un RPE cargado sin minutos, que no suma a la carga.</p>';
+}
 function renderWellness(){
   var el=$("#sec-wellness"),cats=S.config.cats||[];
   var a=document.activeElement,keep=a&&a.closest&&a.closest("#sec-wellness")?a.id:null;
-  var h='<div><h2>Wellness</h2><p class="muted">Respuestas del día por plantel. Cada deportista lo completa al ingresar con su mail.</p></div>';
+  var h='<div><h2>Wellness y carga</h2><p class="muted">Cada deportista completa el wellness al ingresar con su mail y el RPE al terminar de entrenar.</p></div>';
   if(!cats.length){el.innerHTML=h+'<p class="muted">Primero agregá una categoría en la solapa Ajustes.</p>';return;}
-  h+='<div class="wctl"><label class="f"><span>Categoría</span><select id="wl-cat">'+
+  h+='<div class="wctl"><div class="wmode" role="group" aria-label="Vista"><button type="button" class="b" id="wl-m-dia" data-wm="dia" aria-pressed="'+(wl.mode==="dia")+'">Día</button><button type="button" class="b" id="wl-m-semana" data-wm="semana" aria-pressed="'+(wl.mode==="semana")+'">Semana</button></div>'+
+     '<label class="f"><span>Categoría</span><select id="wl-cat">'+
      cats.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===wl.cat?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select></label>'+
-     '<label class="f"><span>Día</span><input type="date" id="wl-date" value="'+esc(wl.date||"")+'"></label>'+
+     '<label class="f"><span>'+(wl.mode==="semana"?"Un día de la semana":"Día")+'</span><input type="date" id="wl-date" value="'+esc(wl.date||"")+'"></label>'+
      '<button type="button" class="b" id="wl-refresh">Actualizar</button></div>';
-  if(!wl.rows){el.innerHTML=h+'<p class="muted">Cargando respuestas…</p>';}
+  if(wl.mode==="semana"){
+    if(!wl.wk)h+='<p class="muted">Cargando la semana…</p>';
+    else if(!wl.wk.rows.length)h+='<p class="muted">Esta categoría todavía no tiene jugadoras cargadas.</p>';
+    else h+=semanaHtml();
+    el.innerHTML=h;
+  }
+  else if(!wl.rows){el.innerHTML=h+'<p class="muted">Cargando respuestas…</p>';}
   else if(!wl.rows.length){el.innerHTML=h+'<p class="muted">Esta categoría todavía no tiene jugadoras cargadas.</p>';}
   else{
     var ok=wl.rows.filter(function(r){return r.state==="ok";}).length,conMail=wl.rows.filter(function(r){return r.state!=="nomail";}).length;
-    h+='<p><b>'+ok+' de '+conMail+'</b> completaron el wellness del '+esc(fechaCorta(wl.date))+'.'+(conMail<wl.rows.length?' '+(wl.rows.length-conMail)+' no tienen mail cargado.':'')+'</p>';
+    var falt=wl.rows.filter(function(r){return r.state==="pend";}).map(function(r){return (P[r.id]||{}).name||"Sin nombre";});
+    h+='<div class="faltan'+(falt.length?'':' ok')+'"><b>'+ok+' de '+conMail+'</b> completaron el wellness del '+esc(fechaCorta(wl.date))+'.'+(conMail<wl.rows.length?' '+(wl.rows.length-conMail)+' no tienen mail cargado.':'')+
+       (falt.length?'<br><b>Faltan:</b> <span id="wl-faltan">'+esc(falt.join(", "))+'</span> <button type="button" class="b" id="wl-copy" style="margin-left:6px">Copiar lista</button>':'')+'</div>';
     h+='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Jugadora</th>';
     WQ.forEach(function(q){h+='<th scope="col">'+q[1]+'</th>';});
-    h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Comentario</th><th scope="col">RPE gimnasio</th><th scope="col">RPE hockey</th></tr></thead><tbody>';
+    h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Comentario</th><th scope="col">Gimnasio<small>RPE × min = carga</small></th><th scope="col">Hockey<small>RPE × min = carga</small></th><th scope="col" class="r">Carga<small>del día</small></th></tr></thead><tbody>';
     wl.rows.forEach(function(r){
       var pl=P[r.id]||{};
       h+='<tr><th scope="row">'+esc(pl.name||"Sin nombre")+'</th>';
@@ -1184,10 +1256,11 @@ function renderWellness(){
       }else{
         h+='<td colspan="'+(WQ.length+3)+'" class="muted">'+(r.state==="nomail"?"Sin mail de ingreso cargado":r.state==="pend"?"Sin responder":"No se pudo leer")+'</td>';
       }
-      h+=rpeCell(r.g)+rpeCell(r.h);
+      var cd=(cargaDe(r.g)||0)+(cargaDe(r.h)||0);
+      h+=rpeCell(r.g)+rpeCell(r.h)+'<td class="r">'+(cd?'<b>'+cd+'</b>':'<span class="muted">–</span>')+'</td>';
       h+='</tr>';
     });
-    h+='</tbody></table></div><p class="small muted">Wellness: escala de 1 a 5, donde 5 es lo mejor (1 y 2 en rojo). RPE: esfuerzo percibido de 0 a 10, con los minutos si los cargó.</p>';
+    h+='</tbody></table></div><p class="small muted">Wellness: escala de 1 a 5, donde 5 es lo mejor (1 y 2 en rojo). Carga del entrenamiento: RPE (0 a 10) × minutos.</p>';
     el.innerHTML=h;
   }
   if(keep){var n=document.getElementById(keep);if(n)n.focus();}
@@ -1196,7 +1269,15 @@ $("#sec-wellness").addEventListener("change",function(e){
   if(e.target.id==="wl-cat"){wl.cat=e.target.value;loadWellness(false);}
   else if(e.target.id==="wl-date"&&e.target.value){wl.date=e.target.value;loadWellness(false);}
 });
-$("#sec-wellness").addEventListener("click",function(e){if(e.target.id==="wl-refresh")loadWellness(true);});
+$("#sec-wellness").addEventListener("click",function(e){
+  var t=e.target;
+  if(t.id==="wl-refresh")loadWellness(true);
+  else if(t.dataset&&t.dataset.wm&&t.dataset.wm!==wl.mode){wl.mode=t.dataset.wm;loadWellness(false);}
+  else if(t.id==="wl-copy"){
+    var tx=$("#wl-faltan").textContent,done=function(){t.textContent="Copiada";};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(tx).then(done,function(){});
+  }
+});
 
 /* deportista: pantalla principal */
 var A={info:null,fecha:"",ans:{},done:false,edit:false,rpe:{},rt:"gimnasio",rv:null,rm:"",rmsg:""};
@@ -1210,19 +1291,20 @@ function rpeHtml(){
   h+='</div><div class="rscale" role="group" aria-label="Esfuerzo percibido de 0 a 10">';
   for(var i=0;i<=10;i++)h+='<button type="button" data-rpe="'+i+'" aria-pressed="'+(A.rv===i)+'">'+i+'</button>';
   h+='</div><div class="rlab" id="rpe-lab">'+(A.rv==null?'':A.rv+' · '+RL[A.rv])+'</div>'+
-     '<label class="f" style="max-width:220px"><span>Duración en minutos (opcional)</span><input type="text" inputmode="numeric" id="rpe-min" value="'+esc(A.rm)+'" placeholder="Por ejemplo 60"></label>'+
+     '<label class="f" style="max-width:220px"><span>Duración en minutos</span><input type="text" inputmode="numeric" id="rpe-min" value="'+esc(A.rm)+'" placeholder="Por ejemplo 60"></label>'+
      '<span class="small low" id="rpe-err" role="alert">'+esc(A.rmsg)+'</span>'+
      '<div><button type="button" class="b pri" id="rpe-send" style="padding:12px 28px;font-size:1rem">'+(A.rpe[A.rt]?'Actualizar':'Enviar')+' RPE de '+(A.rt==="hockey"?'hockey':'gimnasio')+'</button></div>';
   var rows=RT.filter(function(t){return A.rpe[t[0]];});
   if(rows.length){h+='<div class="rdone"><span class="small muted">Cargado hoy</span>';
-    rows.forEach(function(t){var d=A.rpe[t[0]];h+='<span><b>'+t[1]+':</b> RPE '+esc(d.rpe)+(d.min?' · '+esc(d.min)+' min':'')+'</span>';});h+='</div>';}
+    rows.forEach(function(t){var d=A.rpe[t[0]];h+='<span><b>'+t[1]+':</b> RPE '+esc(d.rpe)+(d.min?' × '+esc(d.min)+' min = carga '+(d.rpe*d.min):' · faltan los minutos')+'</span>';});h+='</div>';}
   return h+'</div>';
 }
 function sendRpe(){
   var err=$("#rpe-err");
   if(A.rv==null){err.textContent="Elegí un número del 0 al 10.";return;}
   var doc={fecha:A.fecha,ts:Date.now(),tipo:A.rt,rpe:A.rv},m=parseInt(String(A.rm).replace(/\D/g,""),10);
-  if(!isNaN(m)&&m>0&&m<=600)doc.min=m;
+  if(isNaN(m)||m<1||m>600){err.textContent="Poné cuántos minutos duró el entrenamiento.";return;}
+  doc.min=m;doc.carga=A.rv*m;
   var b=$("#rpe-send");b.disabled=true;b.textContent="Enviando…";err.textContent="";
   db.doc("atletas/"+me+"/rpe/"+A.fecha+"_"+A.rt).set(doc).then(function(){
     A.rpe[A.rt]=doc;A.rmsg="";renderAth();
@@ -1269,7 +1351,8 @@ function renderAth(){
        '<span class="small low" id="ath-err" role="alert"></span>'+
        '<div><button type="button" class="b pri" id="ath-send" style="padding:12px 28px;font-size:1rem">Enviar</button></div>';
   }
-  el.innerHTML=h+'</div>'+rpeHtml();
+  var inst=window.matchMedia&&window.matchMedia("(display-mode: standalone)").matches||navigator.standalone;
+  el.innerHTML=h+'</div>'+rpeHtml()+(inst?'':'<p class="small muted">Para tenerla a mano: abrí el menú del navegador y elegí «Agregar a pantalla de inicio». Te queda como una app con el escudo del club.</p>');
 }
 function sendAth(){
   var err=$("#ath-err"),miss=WQ.filter(function(q){return !(+A.ans[q[0]]>=1);});
