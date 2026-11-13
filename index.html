@@ -248,6 +248,7 @@ button.b:disabled{opacity:.4;cursor:default}
 .sheet td.hoyc,.sheet th.hoyc{background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .faltan{background:var(--surface);border:1px solid var(--line);border-left:5px solid var(--warn);border-radius:8px;padding:10px 14px}
 .faltan.ok{border-left-color:#1E9E5A}
+#reg:not([hidden]){display:flex;flex-direction:column;gap:16px}
 .prow{display:grid;grid-template-columns:minmax(130px,170px) minmax(0,1fr) auto;gap:8px;align-items:center}
 @media (max-width:560px){.prow{grid-template-columns:1fr auto}.prow select{grid-column:1/-1}}
 .cal button[data-tip]:hover::after,.cal button[data-tip]:focus-visible::after{white-space:pre-line;text-align:left}
@@ -364,6 +365,7 @@ var FIREBASE_CONFIG = {
 
   <div id="notice" class="notice"><p>Cargando…</p></div>
   <section id="ath" hidden></section>
+  <section id="reg" hidden></section>
 
   <main id="app" hidden>
     <nav class="nav" aria-label="Secciones">
@@ -475,7 +477,7 @@ function flush(k){
   try{
     if(k==="config"){p=db.doc("plan/config").set(clone(S.config));syncPub();}
     else if(k.indexOf("cat:")===0){var id=k.slice(4);p=S.cats[id]?db.doc("cats/"+id).set(clone(S.cats[id])):db.doc("cats/"+id).delete();}
-    else{var pid=k.slice(3);p=P[pid]?db.doc("players/"+pid).set(clone(P[pid])):db.doc("players/"+pid).delete();if(P[pid])syncAthlete(pid);}
+    else{var pid=k.slice(3);p=P[pid]?db.doc("players/"+pid).set(clone(P[pid])):db.doc("players/"+pid).delete();if(P[pid])syncAthlete(pid);syncReg();}
   }catch(e){p=Promise.reject(e);}
   p.then(function(){hadErr=false;},function(e){
     if(e&&e.code==="permission-denied"){canWrite=false;renderAll(true);}
@@ -749,6 +751,7 @@ function renderSettings(){
   if(!canWrite){el.innerHTML="";return;}
   var h='<div><h2>Ajustes</h2><p class="muted">Cambiá nombres, duración de las fases y categorías. La grilla se rearma sola.</p></div><div class="settings">';
   h+='<div class="basics"><label class="f"><span>Nombre del club</span><input type="text" id="s-club" data-k="club" value="'+esc(c.club||"")+'"></label>'+
+     '<label class="f"><span>Código de ingreso para jugadoras</span><input type="text" id="s-codigo" data-k="codigo" maxlength="12" autocapitalize="characters" value="'+esc(c.codigo||"")+'"></label>'+
      '<label class="f"><span>Título de la pantalla principal</span><input type="text" id="s-titulo" data-k="titulo" placeholder="Hockey Union Casildense 2027" value="'+esc(c.titulo||"")+'"></label>'+
      '<label class="f"><span>Primer lunes del plan</span><input type="date" id="s-start" data-k="start" value="'+esc(c.start||"")+'"></label></div>';
   h+='<div class="list"><span class="lab">Fases (nombre · semanas · objetivo)</span>';
@@ -1208,9 +1211,32 @@ function syncAthlete(id){
 function syncPub(){
   var c=S.config;if(!c||!db||!canWrite)return;
   db.doc("plan/publico").set(clone({titulo:c.titulo||"",cats:c.cats||[],horarios:c.horarios||{},eventos:c.eventos||{},tests:c.tests||[]})).catch(function(){});
+  syncReg();
+}
+function codigoDe(c){return String((c||{}).codigo||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,12);}
+var regCode="",regT=null;
+function syncReg(){
+  clearTimeout(regT);regT=setTimeout(function(){
+    var c=S.config;if(!c||!db||!canWrite)return;var code=codigoDe(c);
+    if(regCode&&regCode!==code)db.doc("registro/"+regCode).delete().catch(function(){});
+    regCode=code;if(!code)return;
+    db.doc("registro/"+code).set({cats:clone(c.cats||[]),jugadoras:Object.keys(P).filter(function(id){return !P[id].email;}).map(function(id){return {id:id,nombre:P[id].name||"",cat:P[id].cat||""};})}).catch(function(){});
+  },800);
+}
+function reclamos(q){
+  if(!canWrite)return;
+  q.docs.forEach(function(d){
+    var a=d.data(),pid=a.player;if(!pid||!P[pid]||isDirty("pl:"+pid))return;
+    if(!P[pid].email){P[pid].email=d.id;dirty("pl:"+pid);if(!$("#app").hidden){var x=document.activeElement;if(!(x&&x.closest&&x.closest("#sec-roster")))renderRoster();}}
+    else if(P[pid].email!==d.id&&a.codigo)db.doc("atletas/"+d.id).delete().catch(function(){});
+  });
 }
 var backfilled=false;
-function backfill(){if(backfilled||!S.config||!canWrite)return;backfilled=true;syncPub();Object.keys(P).forEach(function(id){if(P[id].email&&!isDirty("pl:"+id))syncAthlete(id);});}
+function backfill(){if(backfilled||!S.config||!canWrite)return;backfilled=true;
+  if(!codigoDe(S.config)){var ab="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",k="";for(var i=0;i<6;i++)k+=ab[Math.floor(Math.random()*ab.length)];S.config.codigo=k;dirty("config");if(!$("#view-ajustes").hidden)renderSettings();}
+  regCode=codigoDe(S.config);
+  db.collection("atletas").onSnapshot(reclamos,function(){});
+  syncPub();Object.keys(P).forEach(function(id){if(P[id].email&&!isDirty("pl:"+id))syncAthlete(id);});}
 
 /* cuerpo técnico: historial en la ficha */
 var WH={};
@@ -1516,11 +1542,53 @@ function athEvo(){
   });
   return '<div><h2>Tu evolución</h2></div>'+(h?'<div class="charts" style="max-width:860px">'+h+'</div>':'<p class="muted">Acá vas a ver tu evolución a medida que completes el wellness, cargues tus entrenamientos y te tomen los tests.</p>');
 }
+var RG={code:"",data:null,cat:"",pid:"",msg:""};
+function regStart(){$("#notice").hidden=true;$("#app").hidden=true;$("#ath").hidden=true;$("#reg").hidden=false;regRender();}
+function regRender(){
+  var el=$("#reg"),h='<div><h2>Registrate</h2><p class="muted">Entraste con <b>'+esc(me)+'</b>. Falta un paso para que quedes en tu plantel.</p></div><div class="editor athbox">';
+  if(!RG.data){
+    h+='<label class="f"><span>Código del club</span><input type="text" id="rg-code" maxlength="12" autocapitalize="characters" autocomplete="off" value="'+esc(RG.code)+'" placeholder="Te lo pasa tu preparador físico"></label>'+
+       '<span class="small low" id="rg-err" role="alert">'+esc(RG.msg)+'</span><div><button type="button" class="b pri" id="rg-go" style="padding:12px 28px;font-size:1rem">Continuar</button></div>';
+  }else{
+    var cats=(RG.data.cats||[]).filter(function(c){return (RG.data.jugadoras||[]).some(function(j){return j.cat===c.id;});});
+    var js=(RG.data.jugadoras||[]).filter(function(j){return j.cat===RG.cat;}).sort(function(a,b){return String(a.nombre).localeCompare(String(b.nombre),"es");});
+    h+='<label class="f"><span>Tu categoría</span><select id="rg-cat"><option value="">Elegí tu categoría</option>'+cats.map(function(c){return '<option value="'+esc(c.id)+'"'+(c.id===RG.cat?" selected":"")+'>'+esc(c.name)+'</option>';}).join("")+'</select></label>';
+    if(RG.cat)h+='<label class="f"><span>Tu nombre</span><select id="rg-pid"><option value="">Elegí tu nombre</option>'+js.map(function(j){return '<option value="'+esc(j.id)+'"'+(j.id===RG.pid?" selected":"")+'>'+esc(j.nombre)+'</option>';}).join("")+'</select></label>';
+    h+='<span class="small low" id="rg-err" role="alert">'+esc(RG.msg)+'</span><div><button type="button" class="b pri" id="rg-ok" style="padding:12px 28px;font-size:1rem"'+(RG.pid?'':' disabled')+'>Soy yo</button></div>'+
+       '<p class="small muted">¿No aparece tu nombre? Avisale a tu preparador físico: puede que todavía no te haya cargado o que alguien ya lo haya elegido.</p>';
+  }
+  el.innerHTML=h+'</div>';
+}
+$("#reg").addEventListener("input",function(e){if(e.target.id==="rg-code")RG.code=e.target.value;});
+$("#reg").addEventListener("change",function(e){
+  if(e.target.id==="rg-cat"){RG.cat=e.target.value;RG.pid="";RG.msg="";regRender();}
+  else if(e.target.id==="rg-pid"){RG.pid=e.target.value;RG.msg="";regRender();}
+});
+$("#reg").addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="rg-code")$("#rg-go").click();});
+$("#reg").addEventListener("click",function(e){
+  var b=e.target.closest("button");if(!b)return;
+  if(b.id==="rg-go"){
+    var code=codigoDe({codigo:RG.code});if(!code){RG.msg="Escribí el código del club.";regRender();return;}
+    b.disabled=true;
+    db.doc("registro/"+code).get().then(function(sn){
+      if(!sn.exists){RG.msg="Ese código no es correcto. Revisalo con tu preparador físico.";}
+      else{RG.code=code;RG.data=sn.data();RG.msg="";}
+      regRender();
+    },function(){RG.msg="No se pudo comprobar el código. Revisá tu conexión y probá de nuevo.";regRender();});
+  }else if(b.id==="rg-ok"&&RG.pid){
+    var j=(RG.data.jugadoras||[]).filter(function(x){return x.id===RG.pid;})[0];if(!j)return;
+    b.disabled=true;b.textContent="Guardando…";
+    db.doc("atletas/"+me).set({player:j.id,nombre:j.nombre,cat:j.cat,club:"",codigo:RG.code}).then(function(){
+      $("#reg").hidden=true;started=false;startAthlete();
+    },function(){RG.msg="No se pudo guardar. Probá de nuevo o avisale a tu preparador físico.";regRender();});
+  }
+});
 function athMsg(html){$("#ath").hidden=true;showNotice(html);}
 function startAthlete(){
   started=true;$("#status").hidden=true;$("#logout").hidden=false;$("#range").textContent="";
   db.doc("atletas/"+me).get().then(function(sn){
-    if(!sn.exists){athMsg('<h3>Tu mail todavía no está en el plantel</h3><p class="muted">Avisale a tu preparador físico que entraste con <b>'+esc(me)+'</b> para que lo cargue en tu ficha. Después volvé a abrir la app.</p>');return;}
+    if(!sn.exists){regStart();return;}
+    if(false){athMsg('<h3>Tu mail todavía no está en el plantel</h3><p class="muted">Avisale a tu preparador físico que entraste con <b>'+esc(me)+'</b> para que lo cargue en tu ficha. Después volvé a abrir la app.</p>');return;}
     A.info=sn.data();A.fecha=isoToday();
     return db.doc("atletas/"+me+"/wellness/"+A.fecha).get().then(function(d){
       if(d.exists){A.ans=clone(d.data());A.done=true;}
