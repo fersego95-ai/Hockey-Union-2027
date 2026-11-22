@@ -785,7 +785,8 @@ function renderSettings(){
        '<input type="text" id="test-'+esc(t.id)+'-unit" data-tk="unit" value="'+esc(t.unit||"")+'" aria-label="Unidad" placeholder="Unidad">'+
        '<button type="button" class="b danger" data-act="del-test">Quitar</button></div>';
   });
-  h+='<div><button type="button" class="b" data-act="add-test">Agregar test</button></div></div>';
+  h+='<div class="row"><button type="button" class="b" data-act="add-test">Agregar test</button><button type="button" class="b" data-act="bateria">Usar batería de evaluación 2026</button></div>'+
+     '<span class="small muted">La batería deja: peso, talla, perímetros (bíceps, abdomen, cuádriceps y gemelos), CMJ, drop jump, 30 m y 30-15 IFT. Los tests que ya tengan resultados cargados no se borran.</span></div>';
   h+='<div class="list"><span class="lab">Datos</span><p class="small muted">Descargá una copia de todo (plan, planteles y tests) o cargá una copia guardada.</p>'+
      '<div class="row"><button type="button" class="b" data-act="export">Descargar copia de seguridad</button></div>'+
      '<label class="f" style="max-width:520px"><span>Cargar una copia (.json)</span><input type="file" id="imp-file" accept=".json,application/json"></label>'+
@@ -1038,7 +1039,14 @@ $("#sec-settings").addEventListener("click",function(e){
   if(act==="del-phase"||act==="del-cat"||act==="del-test"){
     if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Quitar";return;}
   }
-  if(act==="add-test"){c.tests.push({id:"t"+Date.now().toString(36),name:"Nuevo test",unit:""});}
+  if(act==="bateria"){
+    var B=[["t_peso","Peso","kg"],["t_talla","Talla","m"],["t_pbic","Perímetro bíceps","cm"],["t_pabd","Perímetro abdomen","cm"],["t_pcua","Perímetro cuádriceps","cm"],["t_pgem","Perímetro gemelos","cm"],
+      ["t_cmj","Salto CMJ","cm"],["t_dj","Drop jump","cm"],["t_s30","Sprint 30 m","s"],["t_ift","30-15 IFT (VIFT)","km/h"]];
+    var used=function(id){return Object.keys(P).some(function(k){return (P[k].evals||[]).some(function(e){return e.vals&&typeof e.vals[id]==="number";});});};
+    var ids=B.map(function(x){return x[0];});
+    c.tests=B.map(function(x){return {id:x[0],name:x[1],unit:x[2]};}).concat((c.tests||[]).filter(function(t){return ids.indexOf(t.id)<0&&used(t.id);}));
+  }
+  else if(act==="add-test"){c.tests.push({id:"t"+Date.now().toString(36),name:"Nuevo test",unit:""});}
   else if(act==="del-test"&&trow){c.tests=c.tests.filter(function(x){return x.id!==trow.dataset.test;});}
   else if(act==="tone"&&i>=0){var p=c.phases[i];p.tone=((+p.tone||((i%6)+1))%6)+1;}
   else if(act==="up"&&i>0){c.phases.splice(i-1,0,c.phases.splice(i,1)[0]);}
