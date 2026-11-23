@@ -69,10 +69,6 @@ body[data-view="inicio"] .brandtxt h1{font-size:clamp(2rem,7vw,3.6rem)}
 .sched th{background:var(--sunk);font-family:var(--display);text-transform:uppercase;letter-spacing:.04em}
 .sched td:first-child,.sched th:first-child{text-align:left;font-weight:600}
 .sched td.now,.sched th.now{background:color-mix(in srgb,var(--accent) 16%,transparent)}
-.wk{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--muted);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:4px}
-.wk.partido{border-left-color:var(--accent2)}.wk.libre{border-left-color:var(--t4)}
-.wk .lab{font-size:.8rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-.wk b{font-family:var(--display);font-size:1.7rem;text-transform:uppercase;letter-spacing:.02em;line-height:1.1}
 .calhead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .calhead .mes{font-family:var(--display);font-size:1.3rem;font-weight:600;text-transform:capitalize;min-width:170px;text-align:center}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
@@ -381,13 +377,13 @@ header.top a:focus-visible,header.top button:focus-visible{outline:2px solid #FF
 /* Títulos y rótulos: menos mayúsculas */
 h2{font-size:1.75rem;font-weight:600;text-transform:none;letter-spacing:.01em}
 h3{font-size:1.3rem}
-label.f>span,.lab,.hoybox .lab,.wk .lab,.mibox .lab{font-family:var(--body);text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:600;color:var(--muted)}
+label.f>span,.lab,.hoybox .lab,.mibox .lab{font-family:var(--body);text-transform:none;letter-spacing:0;font-size:.9rem;font-weight:600;color:var(--muted)}
 .cal .dh{font-family:var(--body);text-transform:none;letter-spacing:0;font-size:.85rem}
 .sched th{font-family:var(--body);text-transform:none;letter-spacing:0;font-weight:600}
 .home .today{font-size:1.6rem;color:var(--fg)}
 
 /* Superficies */
-.editor,.hoybox,.wk,.mibox,.notice,.alist,.chartc,.tcard,.dayed,.faltan{border-radius:var(--r-lg)}
+.editor,.hoybox,.mibox,.notice,.alist,.chartc,.tcard,.dayed,.faltan{border-radius:var(--r-lg)}
 .notice{border-style:solid}
 .hoybox{border-left-width:1px;border-top:4px solid var(--accent)}
 .sheetwrap{border-radius:var(--r-sm)}
@@ -852,7 +848,8 @@ function renderSettings(){
       '<button type="button" class="b ico" data-act="down" aria-label="Bajar fase"'+(i===c.phases.length-1?" disabled":"")+'>↓</button>'+
       '<button type="button" class="b danger" data-act="del-phase">Quitar</button></div></div>';
   });
-  h+='<div><button type="button" class="b" data-act="add-phase">Agregar fase</button></div></div>';
+  h+='<div class="row"><button type="button" class="b" data-act="add-phase">Agregar fase</button><button type="button" class="b" data-act="estructura">Usar estructura 2026-27 (desde el 7/12)</button></div>'+
+     '<span class="small muted">La estructura arranca el lunes 7/12/2026: post temporada con evaluación hasta el 18/12, receso con plan individual, y pretemporada desde la semana del 14/1/2027 hasta mediados de marzo. Las sesiones que ya hayas cargado en las fases anteriores no se borran, pero dejan de verse.</span></div>';
   h+='<div class="list"><span class="lab">Categorías</span>';
   (c.cats||[]).forEach(function(k){
     h+='<div class="crow" data-cat="'+esc(k.id)+'"><input type="text" id="cat-'+esc(k.id)+'" data-ck="name" value="'+esc(k.name||"")+'" aria-label="Nombre de la categoría" placeholder="Nombre de la categoría">'+
@@ -1217,7 +1214,18 @@ $("#sec-settings").addEventListener("click",function(e){
   if(act==="del-phase"||act==="del-cat"||act==="del-test"){
     if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Quitar";return;}
   }
-  if(act==="bateria"){
+  if(act==="estructura"){
+    if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Reemplazar las fases";return;}
+    c.start="2026-12-07";
+    c.phases=[
+      {id:"q1",name:"Post temporada: evaluación y trabajo",weeks:2,tone:2,goal:"Semana 1 (7 al 11/12): evaluación. Día 1: peso, talla, perímetros, CMJ con las dos piernas y a una pierna, drop jump y 30 m. Día 2, al menos 48 h después: 30-15 IFT. Semana 2: fuerza general y compensatoria según las asimetrías, carrera continua extensiva y tempo suave."},
+      {id:"q2",name:"Receso con plan individual",weeks:3,tone:3,goal:"Del 21/12 al 10/1, cada jugadora por su cuenta: 2 carreras continuas extensivas (por debajo del 70% de la VAM) y 1 o 2 sesiones de intervalos largos (8 a 12 × 1 min al 100–110% de la VAM, 2 min caminando) por semana, más fuerza en casa. VAM ≈ VIFT ÷ 1,2."},
+      {id:"q3",name:"Pretemporada general",weeks:3,tone:4,goal:"Arranca el jueves 14/1. Intervalos cortos con cambio de dirección por % de VIFT (30-15 y 15-15 al 90–100%), sprints en cuesta y fuerza base. Grupos G1 a G5 según la VIFT."},
+      {id:"q4",name:"Pretemporada específica",weeks:3,tone:5,goal:"Intervalos de sprint (SIT) y sprints repetidos (RSA), fuerza-potencia. El acondicionamiento pasa a hacerse con palo y bocha."},
+      {id:"q5",name:"Precompetitiva",weeks:3,tone:6,goal:"Microdosis: la semana se arma en recuperación, carga y afinado alrededor de los amistosos. Complemento para las que juegan poco."}
+    ];
+  }
+  else if(act==="bateria"){
     var B=BATL;
     var used=function(id){return Object.keys(P).some(function(k){return (P[k].evals||[]).some(function(e){return e.vals&&typeof e.vals[id]==="number";});});};
     var ids=B.map(function(x){return x[0];});
