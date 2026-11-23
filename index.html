@@ -787,6 +787,7 @@ function renderSettings(){
   });
   h+='<div class="row"><button type="button" class="b" data-act="add-test">Agregar test</button><button type="button" class="b" data-act="bateria">Usar batería de evaluación 2026</button></div>'+
      '<span class="small muted">La batería deja: peso, talla, perímetros (bíceps, abdomen, cuádriceps y gemelos), CMJ, drop jump, 30 m y 30-15 IFT. Los tests que ya tengan resultados cargados no se borran.</span></div>';
+  h+=histImpHtml();
   h+='<div class="list"><span class="lab">Datos</span><p class="small muted">Descargá una copia de todo (plan, planteles y tests) o cargá una copia guardada.</p>'+
      '<div class="row"><button type="button" class="b" data-act="export">Descargar copia de seguridad</button></div>'+
      '<label class="f" style="max-width:520px"><span>Cargar una copia (.json)</span><input type="file" id="imp-file" accept=".json,application/json"></label>'+
@@ -797,6 +798,75 @@ function renderSettings(){
 /* ---------- planteles y tests ---------- */
 function num(v){return (v==null||v==="")?"":String(v).replace(".",",");}
 function isoToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+var HIST=[],HMETA={};
+var BAT={t_peso:["Peso","kg"],t_talla:["Talla","m"],t_pbic:["Perímetro bíceps","cm"],t_pabd:["Perímetro abdomen","cm"],t_pcua:["Perímetro cuádriceps","cm"],t_pgem:["Perímetro gemelos","cm"],t_cmj:["Salto CMJ","cm"],t_dj:["Drop jump","cm"],t_s30:["Sprint 30 m","s"],t_ift:["30-15 IFT (VIFT)","km/h"]};
+var HI={rows:null,msg:""};
+function normTok(x){return String(x||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z ]/g," ").split(/\s+/).filter(Boolean);}
+function histPeople(){var m={},o=[];HIST.forEach(function(r){if(!m[r.n]){m[r.n]={n:r.n,recs:[]};o.push(m[r.n]);}m[r.n].recs.push(r);});return o;}
+function histMatch(){
+  return histPeople().map(function(h){
+    var t=normTok(h.n),fn=t[0]||"",sur=t.slice(1),strong=[],weak=[];
+    Object.keys(P).forEach(function(id){
+      var pt=normTok(P[id].name);if(!sur.length||!sur.every(function(x){return pt.indexOf(x)>=0;}))return;
+      var rest=pt.filter(function(x){return sur.indexOf(x)<0;});
+      if(rest.some(function(x){return x.slice(0,3)===fn.slice(0,3);}))strong.push(id);else weak.push(id);
+    });
+    var sel=strong.length===1?strong[0]:(!strong.length&&weak.length===1?weak[0]:"");
+    return {n:h.n,recs:h.recs,cands:strong.concat(weak),sel:sel,check:!strong.length&&weak.length===1};
+  });
+}
+function histImpHtml(){
+  var h='<div class="list"><span class="lab">Resultados históricos</span><p class="small muted">Cargá el archivo de históricos (.json) que te armé desde tu Drive. Primero cargá las jugadoras en Planteles; después revisá a quién corresponde cada resultado. El archivo queda solo en tu dispositivo y en tu Firebase.</p>';
+  if(!HI.rows)return h+'<label class="f" style="max-width:520px"><span>Archivo de históricos (.json)</span><input type="file" id="hist-file" accept=".json,application/json"></label><span class="small" role="status">'+esc(HI.msg)+'</span></div>';
+  var cats=S.config.cats||[];
+  h+='<div class="alist">';
+  HI.rows.forEach(function(r,i){
+    var src=r.recs.map(function(x){return x.s;}).join(" · ");
+    h+='<div class="arow"><span class="nm" title="'+esc(src)+'">'+esc(r.n)+'<br><span class="small muted" style="font-weight:400">'+esc(src)+'</span></span><span class="st">'+(r.check?'<span class="low">Revisar</span>':'')+'</span>'+
+       '<select data-hist="'+i+'" aria-label="A quién corresponde '+esc(r.n)+'"><option value="">Omitir</option>';
+    r.cands.forEach(function(id){h+='<option value="'+esc(id)+'"'+(r.sel===id?" selected":"")+'>Es '+esc(P[id].name)+' ('+esc(catName(P[id].cat))+')</option>';});
+    cats.forEach(function(c){h+='<option value="new:'+esc(c.id)+'"'+(r.sel==="new:"+c.id?" selected":"")+'>Crear en '+esc(c.name)+'</option>';});
+    h+='</select></div>';
+  });
+  var n=HI.rows.filter(function(r){return r.sel;}).length;
+  return h+'</div><p class="small muted">«Revisar» marca coincidencias solo por apellido: confirmá que sea la misma persona. Las fechas de febrero y mayo 2026 quedaron el día 15 porque la planilla no tiene el día exacto. El perímetro de cuádriceps de 2023 es el promedio de izquierda y derecha.</p>'+
+    '<div class="row"><button type="button" class="b pri" data-act="hist-go">Importar '+n+' jugadora'+(n===1?'':'s')+'</button><button type="button" class="b" data-act="hist-close">Cancelar</button></div><span class="small" role="status">'+esc(HI.msg)+'</span></div>';
+}
+function histImport(){
+  if(!canWrite||!HI.rows)return;
+  var c=S.config,need={},ne=0,np=0;
+  HI.rows.forEach(function(r){
+    if(!r.sel)return;var id=r.sel;
+    if(id.indexOf("new:")===0){id="j"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);P[id]={name:r.n,cat:r.sel.slice(4),pos:"",notes:"",evals:[]};}
+    if(!P[id])return;var pl=P[id];pl.evals=pl.evals||[];
+    var mt=HMETA[r.n]||{};
+    if(mt.pos&&!pl.pos)pl.pos=mt.pos;
+    if(mt.nac){var nt="Nacimiento: "+mt.nac.slice(8)+"/"+mt.nac.slice(5,7)+"/"+mt.nac.slice(0,4);if(String(pl.notes||"").indexOf("Nacimiento:")<0)pl.notes=(pl.notes?pl.notes+"\n":"")+nt;}
+    r.recs.forEach(function(x){
+      var e=pl.evals.filter(function(v){return v.date===x.d;})[0];
+      if(!e){e={id:"h"+x.d.replace(/-/g,""),date:x.d,vals:{}};pl.evals.push(e);}
+      e.vals=e.vals||{};Object.keys(x.v).forEach(function(k){e.vals[k]=x.v[k];need[k]=1;});ne++;
+    });
+    np++;dirty("pl:"+id);
+  });
+  c.tests=c.tests||[];
+  Object.keys(need).forEach(function(k){if(!c.tests.some(function(t){return t.id===k;}))c.tests.push({id:k,name:BAT[k][0],unit:BAT[k][1]});});
+  dirty("config");
+  HI.rows=null;HI.msg="Listo: "+ne+" evaluaciones en "+np+" jugadoras. Las ves en la planilla de cada una, con su gráfico.";
+  renderSettings();renderRoster();
+}
+$("#sec-settings").addEventListener("change",function(e){
+  var t=e.target;if(t.id!=="hist-file"||!t.files||!t.files[0])return;
+  var rd=new FileReader();
+  rd.onload=function(){
+    try{var d=JSON.parse(rd.result);if(d.tipo!=="historicos-hockey-union"||!Array.isArray(d.recs))throw 0;
+      HIST=d.recs;HMETA=d.meta||{};HI.rows=histMatch();HI.msg="";}
+    catch(x){HI.msg="Ese archivo no es el de históricos.";}
+    renderSettings();
+  };
+  rd.readAsText(t.files[0]);
+});
+$("#sec-settings").addEventListener("change",function(e){var t=e.target;if(t.dataset.hist!=null&&HI.rows){HI.rows[+t.dataset.hist].sel=t.value;var n=HI.rows.filter(function(r){return r.sel;}).length,b=document.querySelector('[data-act="hist-go"]');if(b)b.textContent="Importar "+n+" jugadora"+(n===1?"":"s");}});
 function sortedEvals(pl){return (pl.evals||[]).slice().sort(function(a,b){var x=a.date||"",y=b.date||"";return x<y?-1:x>y?1:0;});}
 function deltaHtml(pl,tests){
   var ev=sortedEvals(pl);if(ev.length<2||!tests.length)return "";
@@ -1028,6 +1098,8 @@ $("#sec-settings").addEventListener("input",function(e){
 $("#sec-settings").addEventListener("click",function(e){
   var b=e.target.closest("button[data-act]");if(!b)return;
   if(b.dataset.act==="export"){exportData();return;}
+  if(b.dataset.act==="hist-close"){HI.rows=null;HI.msg="";renderSettings();return;}
+  if(b.dataset.act==="hist-go"){histImport();return;}
   if(b.dataset.act==="apply-import"){
     if(pendingImport&&applyImport(pendingImport)){pendingImport=null;impMsg="Datos cargados.";}
     renderAll(true);return;
