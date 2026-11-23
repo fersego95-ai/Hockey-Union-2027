@@ -820,12 +820,12 @@ function histMatch(){
   return histPeople().map(function(h){
     var t=normTok(h.n),fn=t[0]||"",sur=t.slice(1),strong=[],weak=[];
     Object.keys(P).forEach(function(id){
-      var pt=normTok(P[id].name);if(!sur.length||!sur.every(function(x){return pt.indexOf(x)>=0;}))return;
+      var pt=normTok(P[id].name);if(!sur.length||pt.indexOf(sur[0])<0)return;
       var rest=pt.filter(function(x){return sur.indexOf(x)<0;});
       if(rest.some(function(x){return x.slice(0,3)===fn.slice(0,3);}))strong.push(id);else weak.push(id);
     });
-    var sel=strong.length===1?strong[0]:(!strong.length&&weak.length===1?weak[0]:"");
-    return {n:h.n,recs:h.recs,cands:strong.concat(weak),sel:sel,check:!strong.length&&weak.length===1};
+    var sel=strong.length===1?strong[0]:"";
+    return {n:h.n,recs:h.recs,cands:strong.concat(weak),sel:sel,check:!strong.length&&weak.length>0};
   });
 }
 function histImpHtml(){
@@ -842,7 +842,7 @@ function histImpHtml(){
     h+='</select></div>';
   });
   var n=HI.rows.filter(function(r){return r.sel;}).length;
-  return h+'</div><p class="small muted">«Revisar» marca coincidencias solo por apellido: confirmá que sea la misma persona. Las fechas de febrero y mayo 2026 quedaron el día 15 porque la planilla no tiene el día exacto.</p>'+
+  return h+'</div><p class="small muted">«Revisar» indica que hay alguien con el mismo apellido pero otro nombre: si es la misma persona (por ejemplo un apodo), elegila en la lista. Las fechas de febrero y mayo 2026 quedaron el día 15 porque la planilla no tiene el día exacto.</p>'+
     '<div class="row"><button type="button" class="b pri" data-act="hist-go">Importar '+n+' jugadora'+(n===1?'':'s')+'</button><button type="button" class="b" data-act="hist-close">Cancelar</button></div><span class="small" role="status">'+esc(HI.msg)+'</span></div>';
 }
 function histImport(){
@@ -985,7 +985,13 @@ function renderRoster(){
     }
     h+='<div><span class="lab">Wellness (últimos registros)</span></div><div id="wl-hist">'+histHtml(pl)+'</div>';
     h+='<label class="f"><span>Observaciones</span><textarea id="pl-notes" data-f="notes"'+dis+'>'+esc(pl.notes||"")+'</textarea></label>';
-    if(canWrite)h+='<div class="row">'+(tests.length?'<button type="button" class="b pri" data-act="add-ev">Agregar evaluación</button>':'')+'<button type="button" class="b danger" data-act="del-player">Quitar jugadora</button></div>';
+    if(canWrite){
+      h+='<div class="row">'+(tests.length?'<button type="button" class="b pri" data-act="add-ev">Agregar evaluación</button>':'')+'<button type="button" class="b danger" data-act="del-player">Quitar jugadora</button></div>';
+      var otras=Object.keys(P).filter(function(id){return id!==selP;}).sort(function(a,b){var x=(P[a].cat===pl.cat?0:1)-(P[b].cat===pl.cat?0:1);return x||String(P[a].name||"").localeCompare(String(P[b].name||""),"es");});
+      if(otras.length)h+='<div class="row" style="align-items:flex-end"><label class="f" style="max-width:340px"><span>¿Está cargada dos veces? Unir con</span><select id="pl-merge"><option value="">Elegí la otra ficha</option>'+
+        otras.map(function(id){return '<option value="'+esc(id)+'">'+esc(P[id].name||"Sin nombre")+' ('+esc(catName(P[id].cat))+')</option>';}).join("")+'</select></label>'+
+        '<button type="button" class="b" data-act="merge">Unir en esta ficha</button></div><span class="small muted">Pasa a esta ficha todas las evaluaciones y datos de la otra, y la otra se borra. Si las dos tienen un resultado del mismo test en la misma fecha, queda el de esta ficha.</span>';
+    }
     h+='</div>';
   }
   h+='</div>';
@@ -1155,6 +1161,24 @@ $("#sec-roster").addEventListener("click",function(e){
   if(!canWrite)return;
   if(act==="add-player"){addPlayer(b.dataset.cat);return;}
   var pl=selP&&P[selP];if(!pl)return;
+  if(act==="merge"){
+    var src=$("#pl-merge").value,o=P[src];if(!src||!o)return;
+    if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Unir con "+(o.name||"la otra");return;}
+    pl.evals=pl.evals||[];
+    (o.evals||[]).forEach(function(e){
+      var t=pl.evals.filter(function(x){return x.date&&x.date===e.date;})[0];
+      if(!t){pl.evals.push(clone(e));return;}
+      t.vals=t.vals||{};Object.keys(e.vals||{}).forEach(function(k){if(typeof t.vals[k]!=="number")t.vals[k]=e.vals[k];});
+    });
+    if(!pl.pos&&o.pos)pl.pos=o.pos;
+    if(o.notes&&String(pl.notes||"").indexOf(o.notes)<0)pl.notes=(pl.notes?pl.notes+"\n":"")+o.notes;
+    var mailMovido=false;
+    if(!pl.email&&o.email){pl.email=o.email;mailMovido=true;}
+    else if(o.email&&o.email!==pl.email)db.doc("atletas/"+o.email).delete().catch(function(){});
+    delete P[src];dirty("pl:"+src);dirty("pl:"+selP);
+    if(mailMovido)syncAthlete(selP);
+    renderRoster();return;
+  }
   if(act==="del-ev"||act==="del-player"){
     if(!b.dataset.armed){b.dataset.armed="1";b.textContent="¿Seguro? Quitar";return;}
   }
