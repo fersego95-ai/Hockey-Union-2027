@@ -421,6 +421,18 @@ button.b.danger{border-color:color-mix(in srgb,var(--warn) 35%,var(--line))}
 header.top #install{background:#FFFFFF;color:var(--band);border-color:#FFFFFF}
 .installhelp{background:var(--surface);border:1px solid var(--line);border-top:4px solid var(--accent);border-radius:var(--r-lg);padding:18px 20px;display:flex;flex-direction:column;gap:10px;max-width:640px}
 .installhelp ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px}
+/* Competencias */
+.ranks{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.rk{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.rkt{font-family:var(--display);font-weight:600;font-size:1.2rem;line-height:1.1}
+.rk ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.rk li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center}
+.rkn{width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:700 .95rem var(--display);background:var(--sunk);color:var(--fg)}
+.rk li.p1 .rkn{background:#E8B40F;color:#2B2100}.rk li.p2 .rkn{background:#B9C2CF;color:#1B2433}.rk li.p3 .rkn{background:#C98A55;color:#2A1606}
+.rkname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk li b{font-variant-numeric:tabular-nums;white-space:nowrap}.rk li b small{color:var(--muted);font-weight:500}
+.rk li.me .rkname{font-weight:700;color:var(--accent)}
+.rkme{font-size:.88rem;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
 /* Ingreso */
 .login{max-width:380px}
 #notice:has(.login){align-items:stretch;max-width:460px;padding:28px}
@@ -572,7 +584,7 @@ function flush(k){
   try{
     if(k==="config"){p=db.doc("plan/config").set(clone(S.config));syncPub();}
     else if(k.indexOf("cat:")===0){var id=k.slice(4);p=S.cats[id]?db.doc("cats/"+id).set(clone(S.cats[id])):db.doc("cats/"+id).delete();}
-    else{var pid=k.slice(3);p=P[pid]?db.doc("players/"+pid).set(clone(P[pid])):db.doc("players/"+pid).delete();if(P[pid])syncAthlete(pid);syncReg();}
+    else{var pid=k.slice(3);p=P[pid]?db.doc("players/"+pid).set(clone(P[pid])):db.doc("players/"+pid).delete();if(P[pid])syncAthlete(pid);syncReg();syncRank();}
   }catch(e){p=Promise.reject(e);}
   p.then(function(){hadErr=false;},function(e){
     if(e&&e.code==="permission-denied"){canWrite=false;renderAll(true);}
@@ -640,6 +652,7 @@ function calHtml(now){
   }else if(canWrite)h+='<p class="small muted">Tocá un día para cargar un partido.</p>';
   return h;
 }
+var RKC=null;
 function renderHome(){
   var el=$("#sec-home");if(!el||!S.config)return;
   var c=S.config,hs=c.horarios||{},cats=c.cats||[],now=new Date(),dk=DKEY[now.getDay()];
@@ -653,7 +666,11 @@ function renderHome(){
     h+='<a href="#horarios" data-view="horarios">Ver horarios de la semana</a>';
   }
   h+='</div></div>';
-  el.innerHTML=h+calHtml(now);
+  var rc=(S.config.cats||[]).filter(function(k){return RK&&RK.cats&&RK.cats[k.id];});
+  if(!RKC||!rc.some(function(k){return k.id===RKC;}))RKC=rc.length?rc[0].id:((S.config.cats||[])[0]||{}).id;
+  var rh='<div class="calhead"><h2>Competencias</h2>'+((S.config.cats||[]).length?'<select id="rk-cat" aria-label="Categoría de las competencias" style="width:auto">'+(S.config.cats||[]).map(function(k){return '<option value="'+esc(k.id)+'"'+(k.id===RKC?" selected":"")+'>'+esc(k.name)+'</option>';}).join("")+'</select>':'')+'</div>'+
+    (RK?rankHtml(RK,RKC,null,true):'<p class="muted">Calculando…</p>')+'<p class="small muted">Las jugadoras ven las de su categoría en su pantalla de inicio.</p>';
+  el.innerHTML=h+rh+calHtml(now);
   var hh='<div><h2>Horarios de la semana</h2><p class="muted">Cronograma de entrenamientos de cada categoría.'+(canWrite?' Se editan en Ajustes.':'')+'</p></div>';
   if(!any)hh+='<p class="muted">Todavía no hay horarios cargados.'+(canWrite?' Cargalos en Menú → Ajustes → Horarios de entrenamiento.':'')+'</p>';
   else{
@@ -686,6 +703,7 @@ $("#sec-home").addEventListener("input",function(e){
   var cb=document.querySelector('.cal button[data-day="'+cal.sel+'"]');if(cb)cb.setAttribute("data-tip",a.map(function(x){return partidoTxt(x);}).join("\n"));
 });
 $("#sec-home").addEventListener("change",function(e){
+  if(e.target.id==="rk-cat"){RKC=e.target.value;renderHome();var r=$("#rk-cat");if(r)r.focus();return;}
   var t=e.target;if(!canWrite||!cal.sel)return;
   if(t.dataset.evcat!=null){var a=clone(partidosDe(cal.sel));if(!a[+t.dataset.evcat])return;a[+t.dataset.evcat].cat=t.value;setPartidos(cal.sel,a);renderHome();}
 });
@@ -1401,7 +1419,7 @@ function showView(v,force){
   [].forEach.call(document.querySelectorAll("#menu-pop a"),function(x){if(x.dataset.view===v)x.setAttribute("aria-current","page");else x.removeAttribute("aria-current");});
   var cur=document.querySelector('#menu-pop a[data-view="'+v+'"]');
   $("#nav-menu").firstChild.textContent=cur?"Menú · "+cur.textContent.trim()+" ":"Menú ";
-  menuOpen(false);
+  if(force||document.body.dataset.view!==v)menuOpen(false);
   document.body.dataset.view=v;
   if(v==="wellness")loadWellness(!!force);
   if(v==="asistencia")loadAsist(!!force);
@@ -1526,12 +1544,72 @@ function reclamos(q){
     else if(P[pid].email!==d.id&&a.codigo)db.doc("atletas/"+d.id).delete().catch(function(){});
   });
 }
+/* Competencias: rankings por categoría, publicados para las deportistas */
+var COMPS=[["asist","Más entrenamientos","entren.",false],["t_cmj","Salta más (CMJ)","cm",false],["t_dj","Drop jump","cm",false],["t_s30","Más rápida (30 m)","s",true],["t_ift","Más resistente (30-15 IFT)","km/h",false]];
+var RK=null,rkT=null;
+function rankComps(){
+  var tids=(S.config.tests||[]).map(function(t){return t.id;});
+  var extra=(S.config.tests||[]).filter(function(t){return /^t_fza/.test(t.id)||/fuerza|\brm\b/i.test(t.name||"");}).map(function(t){return [t.id,"Más fuerte ("+t.name.replace(/^Fuerza:?\s*/i,"")+")",t.unit||"",false];});
+  return COMPS.filter(function(c){return c[0]==="asist"||tids.indexOf(c[0])>=0;}).concat(extra);
+}
+function computeRank(asis){
+  var desde=dPlus(isoToday(),-183),out={upd:isoToday(),cats:{}},comps=rankComps();
+  (S.config.cats||[]).forEach(function(cat){
+    var ids=Object.keys(P).filter(function(id){return P[id].cat===cat.id;});if(!ids.length)return;
+    var cc={comps:[],pos:{}};
+    comps.forEach(function(c){
+      var vals=[];
+      ids.forEach(function(id){
+        var v=null;
+        if(c[0]==="asist"){v=(asis[id]||0);if(!v)v=null;}
+        else sortedEvals(P[id]).forEach(function(e){if(e.date&&e.date>=desde&&e.vals&&typeof e.vals[c[0]]==="number")v=e.vals[c[0]];});
+        if(v!=null)vals.push({id:id,v:v});
+      });
+      if(!vals.length)return;
+      vals.sort(function(a,b){return c[3]?a.v-b.v:b.v-a.v;});
+      var rank=0,prev=null;
+      vals.forEach(function(x,i){if(x.v!==prev){rank=i+1;prev=x.v;}x.r=rank;(cc.pos[x.id]=cc.pos[x.id]||{})[c[0]]=[rank,vals.length,x.v];});
+      var tp=vals.filter(function(x){return x.r<=3;});
+      cc.comps.push({id:c[0],name:c[1],unit:c[2],lower:c[3],more:Math.max(0,tp.length-5),top:tp.slice(0,5).map(function(x){return {n:P[x.id].name||"",v:x.v,r:x.r,id:x.id};})});
+    });
+    if(cc.comps.length)out.cats[cat.id]=cc;
+  });
+  return out;
+}
+function syncRank(){
+  if(!db||!canWrite||!S.config)return;
+  clearTimeout(rkT);rkT=setTimeout(function(){
+    db.collection("asist").where("fecha",">=",dPlus(isoToday(),-29)).get().then(function(sn){
+      var a={};sn.docs.forEach(function(d){var pr=d.data().pres||{};Object.keys(pr).forEach(function(id){if(pr[id]==="p")a[id]=(a[id]||0)+1;});});return a;
+    },function(){return {};}).then(function(a){
+      RK=computeRank(a);
+      db.doc("plan/ranking").set(clone(RK)).catch(function(){});
+      if(!$("#view-inicio").hidden)renderHome();
+    });
+  },2500);
+}
+function rankHtml(R,catId,myId,pick){
+  var cc=R&&R.cats&&R.cats[catId];
+  if(!cc||!cc.comps.length)return '<p class="muted">Todavía no hay resultados para armar las competencias'+(pick?' de esta categoría':'')+'. Aparecen cuando se cargan tests o asistencias.</p>';
+  var h='<div class="ranks">';
+  cc.comps.forEach(function(c){
+    h+='<div class="rk"><span class="rkt">'+esc(c.name)+'</span><ol>';
+    c.top.forEach(function(x){h+='<li class="p'+x.r+(x.id===myId?' me':'')+'"><span class="rkn">'+x.r+'</span><span class="rkname">'+esc(x.n)+(x.id===myId?' (vos)':'')+'</span><b>'+esc(num(x.v))+' <small>'+esc(c.unit)+'</small></b></li>';});
+    h+='</ol>';
+    if(c.more)h+='<span class="small muted">y '+c.more+' más empatadas</span>';
+    var me=myId&&cc.pos[myId]&&cc.pos[myId][c.id];
+    if(myId&&me&&me[0]>3)h+='<span class="rkme">Vos: puesto '+me[0]+' de '+me[1]+' · '+esc(num(me[2]))+' '+esc(c.unit)+'</span>';
+    else if(myId&&!me)h+='<span class="rkme">Todavía no tenés registro en esta.</span>';
+    h+='</div>';
+  });
+  return h+'</div><p class="small muted">Tests: última medición de los últimos 6 meses. Entrenamientos: presentes de los últimos 30 días. Actualizado el '+esc(fechaCorta(R.upd))+'.</p>';
+}
 var backfilled=false;
 function backfill(){if(backfilled||!S.config||!canWrite)return;backfilled=true;
   if(!codigoDe(S.config)){var ab="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",k="";for(var i=0;i<6;i++)k+=ab[Math.floor(Math.random()*ab.length)];S.config.codigo=k;dirty("config");if(!$("#view-ajustes").hidden)renderSettings();}
   regCode=codigoDe(S.config);
   db.collection("atletas").onSnapshot(reclamos,function(){});
-  syncPub();Object.keys(P).forEach(function(id){if(P[id].email&&!isDirty("pl:"+id))syncAthlete(id);});}
+  syncPub();syncRank();Object.keys(P).forEach(function(id){if(P[id].email&&!isDirty("pl:"+id))syncAthlete(id);});}
 
 /* cuerpo técnico: historial en la ficha */
 var WH={};
@@ -1723,7 +1801,7 @@ function loadAsist(force){
 function saveAsist(){
   AS.hist[AS.date]=clone(AS.pres);
   var ref=db.doc("asist/"+AS.cat+"_"+AS.date),n=Object.keys(AS.pres).length;
-  (n?ref.set({cat:AS.cat,fecha:AS.date,pres:clone(AS.pres)}):ref.delete()).then(function(){AS.msg="";},function(){AS.msg="No se pudo guardar. Revisá tu conexión.";var m=$("#as-msg");if(m)m.textContent=AS.msg;});
+  (n?ref.set({cat:AS.cat,fecha:AS.date,pres:clone(AS.pres)}):ref.delete()).then(function(){AS.msg="";syncRank();},function(){AS.msg="No se pudo guardar. Revisá tu conexión.";var m=$("#as-msg");if(m)m.textContent=AS.msg;});
 }
 function renderAsist(){
   var el=$("#sec-asist"),cats=S.config.cats||[];
@@ -1802,8 +1880,13 @@ function loadAthExtra(){
   var up=function(){var t=$("#ath-top"),e=$("#ath-evo");if(t)t.innerHTML=athTop();if(e)e.innerHTML=athEvo();};
   var q=function(c,d0){return db.collection("atletas/"+me+"/"+c).where("fecha",">=",d0).where("fecha","<=",A.fecha).get().then(function(sn){return sn.docs.map(function(x){return x.data();});},function(){return [];});};
   db.doc("plan/publico").get().then(function(sn){A.pub=sn.exists?sn.data():null;},function(){A.pub=null;}).then(up);
+  db.doc("plan/ranking").get().then(function(sn){A.rank=sn.exists?sn.data():null;},function(){A.rank=null;}).then(function(){var r=$("#ath-rank");if(r)r.innerHTML=athRank();});
   q("wellness",dPlus(A.fecha,-27)).then(function(r){A.hw=r;up();});
   q("rpe",dPlus(lunesDe(A.fecha),-7)).then(function(r){A.hr=r;up();});
+}
+function athRank(){
+  if(!A.rank||!A.info.cat||!A.rank.cats||!A.rank.cats[A.info.cat])return "";
+  return '<div><h2>Competencias de tu categoría</h2></div>'+rankHtml(A.rank,A.info.cat,A.info.player,false);
 }
 function athTop(){
   var c=A.pub;if(!c)return "";
@@ -1899,7 +1982,7 @@ function renderAth(){
   var el=$("#ath");$("#notice").hidden=true;$("#app").hidden=true;el.hidden=false;
   var nombre=String(A.info.nombre||"").trim().split(/\s+/)[0]||"";
   var hoy=new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-  var h='<div id="ath-top">'+athTop()+'</div><div><h2>Wellness de hoy</h2><p class="muted">'+esc(hoy)+(nombre?' · Hola, '+esc(nombre):'')+'</p></div><div class="editor athbox">';
+  var h='<div id="ath-top">'+athTop()+'</div><div id="ath-rank" style="display:flex;flex-direction:column;gap:12px">'+athRank()+'</div><div><h2>Wellness de hoy</h2><p class="muted">'+esc(hoy)+(nombre?' · Hola, '+esc(nombre):'')+'</p></div><div class="editor athbox">';
   if(A.done&&!A.edit){
     var t=wTotal(A.ans);
     h+='<h3>Ya lo completaste hoy. ¡Gracias!</h3><div class="sum">';
