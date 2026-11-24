@@ -943,7 +943,7 @@ function renderSettings(){
        '<button type="button" class="b danger" data-act="del-test">Quitar</button></div>';
   });
   h+='<div class="row"><button type="button" class="b" data-act="add-test">Agregar test</button><button type="button" class="b" data-act="bateria">Usar batería de evaluación 2026</button></div>'+
-     '<span class="small muted">La batería deja: peso, talla, perímetro de abdomen, perímetros de bíceps, cuádriceps y gemelo por lado, CMJ (con las dos piernas y a una pierna, der. e izq.), drop jump, 30 m y 30-15 IFT. Los tests que ya tengan resultados cargados no se borran.</span></div>';
+     '<span class="small muted">La batería deja: peso, talla, perímetro de abdomen, perímetros de bíceps, cuádriceps y gemelo por lado, CMJ (con las dos piernas y a una pierna, der. e izq.), drop jump, IMTP, 30 m y 30-15 IFT. Los tests que ya tengan resultados cargados no se borran.</span></div>';
   h+=histImpHtml();
   h+='<div class="list"><span class="lab">Datos</span><p class="small muted">Descargá una copia de todo (plan, planteles y tests) o cargá una copia guardada.</p>'+
      '<div class="row"><button type="button" class="b" data-act="export">Descargar copia de seguridad</button></div>'+
@@ -958,7 +958,7 @@ function isoToday(){var d=new Date();return d.getFullYear()+"-"+String(d.getMont
 var HIST=[],HMETA={};
 var BATL=[["t_peso","Peso","kg"],["t_talla","Talla","m"],["t_pabd","Perímetro abdomen","cm"],
   ["t_pbic_d","Perímetro bíceps der.","cm"],["t_pbic_i","Perímetro bíceps izq.","cm"],["t_pcua_d","Perímetro cuádriceps der.","cm"],["t_pcua_i","Perímetro cuádriceps izq.","cm"],["t_pgem_d","Perímetro gemelo der.","cm"],["t_pgem_i","Perímetro gemelo izq.","cm"],
-  ["t_cmj","CMJ","cm"],["t_cmj_d","CMJ pierna der.","cm"],["t_cmj_i","CMJ pierna izq.","cm"],["t_dj","Drop jump","cm"],["t_s30","Sprint 30 m","s"],["t_ift","30-15 IFT (VIFT)","km/h"]];
+  ["t_cmj","CMJ","cm"],["t_cmj_d","CMJ pierna der.","cm"],["t_cmj_i","CMJ pierna izq.","cm"],["t_dj","Drop jump","cm"],["t_imtp","IMTP (fuerza isométrica)","N"],["t_s30","Sprint 30 m","s"],["t_ift","30-15 IFT (VIFT)","km/h"]];
 var BAT={};BATL.forEach(function(x){BAT[x[0]]=[x[1],x[2]];});
 var PARES=[["t_pbic_d","t_pbic_i","Perímetro de bíceps"],["t_pcua_d","t_pcua_i","Perímetro de cuádriceps"],["t_pgem_d","t_pgem_i","Perímetro de gemelo"],["t_cmj_d","t_cmj_i","CMJ a una pierna"]];
 function asimHtml(pl){
@@ -1545,12 +1545,13 @@ function reclamos(q){
   });
 }
 /* Competencias: rankings por categoría, publicados para las deportistas */
-var COMPS=[["asist","Más entrenamientos","entren.",false],["t_cmj","Salta más (CMJ)","cm",false],["t_dj","Drop jump","cm",false],["t_s30","Más rápida (30 m)","s",true],["t_ift","Más resistente (30-15 IFT)","km/h",false]];
+var COMPS=[["asist","Más entrenamientos","entren.",false],["t_cmj","Salta más (CMJ)","cm",false],["t_dj","Drop jump","cm",false],["t_imtp","Más fuerte (IMTP)","N",false],["t_s30","Más rápida (30 m)","s",true],["t_ift","Más resistente (30-15 IFT)","km/h",false]];
 var RK=null,rkT=null;
 function rankComps(){
   var tids=(S.config.tests||[]).map(function(t){return t.id;});
   var extra=(S.config.tests||[]).filter(function(t){return /^t_fza/.test(t.id)||/fuerza|\brm\b/i.test(t.name||"");}).map(function(t){return [t.id,"Más fuerte ("+t.name.replace(/^Fuerza:?\s*/i,"")+")",t.unit||"",false];});
-  return COMPS.filter(function(c){return c[0]==="asist"||tids.indexOf(c[0])>=0;}).concat(extra);
+  var un={};(S.config.tests||[]).forEach(function(t){un[t.id]=t.unit;});
+  return COMPS.filter(function(c){return c[0]==="asist"||tids.indexOf(c[0])>=0;}).map(function(c){return c[0]==="asist"?c:[c[0],c[1],un[c[0]]||c[2],c[3]];}).concat(extra.filter(function(c){return c[0]!=="t_imtp";}));
 }
 function computeRank(asis){
   var desde=dPlus(isoToday(),-183),out={upd:isoToday(),cats:{}},comps=rankComps();
