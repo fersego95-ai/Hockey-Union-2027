@@ -1545,13 +1545,13 @@ function reclamos(q){
   });
 }
 /* Competencias: rankings por categoría, publicados para las deportistas */
-var COMPS=[["asist","Más entrenamientos","entren.",false],["t_cmj","Salta más (CMJ)","cm",false],["t_dj","Drop jump","cm",false],["t_imtp","Más fuerte (IMTP)","N",false],["t_s30","Más rápida (30 m)","s",true],["t_ift","Más resistente (30-15 IFT)","km/h",false]];
+var COMPS=[["asist","Más entrenamientos","entren.",false],["t_cmj","Salta más (CMJ)","cm",false],["t_dj","Drop jump","cm",false],["t_imtp","Más fuerte (IMTP relativo al peso)","N/kg",false,"rel"],["t_s30","Más rápida (30 m)","s",true],["t_ift","Más resistente (30-15 IFT)","km/h",false]];
 var RK=null,rkT=null;
 function rankComps(){
   var tids=(S.config.tests||[]).map(function(t){return t.id;});
   var extra=(S.config.tests||[]).filter(function(t){return /^t_fza/.test(t.id)||/fuerza|\brm\b/i.test(t.name||"");}).map(function(t){return [t.id,"Más fuerte ("+t.name.replace(/^Fuerza:?\s*/i,"")+")",t.unit||"",false];});
   var un={};(S.config.tests||[]).forEach(function(t){un[t.id]=t.unit;});
-  return COMPS.filter(function(c){return c[0]==="asist"||tids.indexOf(c[0])>=0;}).map(function(c){return c[0]==="asist"?c:[c[0],c[1],un[c[0]]||c[2],c[3]];}).concat(extra.filter(function(c){return c[0]!=="t_imtp";}));
+  return COMPS.filter(function(c){return c[0]==="asist"||tids.indexOf(c[0])>=0;}).map(function(c){if(c[0]==="asist")return c;var u=un[c[0]]||c[2];if(c[4]==="rel")u=/^kg$/i.test(u)?"× peso":(u||"N")+"/kg";return [c[0],c[1],u,c[3],c[4]];}).concat(extra.filter(function(c){return c[0]!=="t_imtp";}));
 }
 function computeRank(asis){
   var desde=dPlus(isoToday(),-183),out={upd:isoToday(),cats:{}},comps=rankComps();
@@ -1563,6 +1563,10 @@ function computeRank(asis){
       ids.forEach(function(id){
         var v=null;
         if(c[0]==="asist"){v=(asis[id]||0);if(!v)v=null;}
+        else if(c[4]==="rel"){
+          var ev=sortedEvals(P[id]),pesoAt=function(d){var w=null;ev.forEach(function(e){if(e.date&&e.date<=d&&e.date>=dPlus(d,-90)&&e.vals&&typeof e.vals.t_peso==="number"&&e.vals.t_peso>0)w=e.vals.t_peso;});return w;};
+          ev.forEach(function(e){if(e.date&&e.date>=desde&&e.vals&&typeof e.vals[c[0]]==="number"){var w=pesoAt(e.date);if(w)v=Math.round(e.vals[c[0]]/w*100)/100;}});
+        }
         else sortedEvals(P[id]).forEach(function(e){if(e.date&&e.date>=desde&&e.vals&&typeof e.vals[c[0]]==="number")v=e.vals[c[0]];});
         if(v!=null)vals.push({id:id,v:v});
       });
@@ -1603,7 +1607,7 @@ function rankHtml(R,catId,myId,pick){
     else if(myId&&!me)h+='<span class="rkme">Todavía no tenés registro en esta.</span>';
     h+='</div>';
   });
-  return h+'</div><p class="small muted">Tests: última medición de los últimos 6 meses. Entrenamientos: presentes de los últimos 30 días. Actualizado el '+esc(fechaCorta(R.upd))+'.</p>';
+  return h+'</div><p class="small muted">Tests: última medición de los últimos 6 meses; el IMTP se divide por el peso de la misma evaluación (o el último de los 90 días anteriores). Entrenamientos: presentes de los últimos 30 días. Actualizado el '+esc(fechaCorta(R.upd))+'.</p>';
 }
 var backfilled=false;
 function backfill(){if(backfilled||!S.config||!canWrite)return;backfilled=true;
