@@ -1554,7 +1554,7 @@ function rankComps(){
   return COMPS.filter(function(c){return c[0]==="asist"||tids.indexOf(c[0])>=0;}).map(function(c){if(c[0]==="asist")return c;var u=un[c[0]]||c[2];if(c[4]==="rel")u=/^kg$/i.test(u)?"× peso":(u||"N")+"/kg";return [c[0],c[1],u,c[3],c[4]];}).concat(extra.filter(function(c){return c[0]!=="t_imtp";}));
 }
 function computeRank(asis){
-  var desde=isoToday().slice(0,4)+"-01-01",out={upd:isoToday(),cats:{}},comps=rankComps();
+  var hoy=isoToday(),yy=+hoy.slice(0,4),tem=+hoy.slice(5,7)===12?yy+1:yy,desde=(tem-1)+"-12-01",out={upd:hoy,tem:tem,cats:{}},comps=rankComps();
   (S.config.cats||[]).forEach(function(cat){
     var ids=Object.keys(P).filter(function(id){return P[id].cat===cat.id;});if(!ids.length)return;
     var cc={comps:[],pos:{}};
@@ -1607,7 +1607,7 @@ function rankHtml(R,catId,myId,pick){
     else if(myId&&!me)h+='<span class="rkme">Todavía no tenés registro en esta.</span>';
     h+='</div>';
   });
-  return h+'</div><p class="small muted">Tests: última medición de este año ('+esc(String(R.upd).slice(0,4))+'); el IMTP se divide por el peso de la misma evaluación (o el último de los 90 días anteriores). Entrenamientos: presentes de los últimos 30 días. Actualizado el '+esc(fechaCorta(R.upd))+'.</p>';
+  return h+'</div><p class="small muted">Tests: última medición de la temporada '+esc(String(R.tem||""))+' (desde el 1 de diciembre); el IMTP se divide por el peso de la misma evaluación (o el último de los 90 días anteriores). Entrenamientos: presentes de los últimos 30 días. Actualizado el '+esc(fechaCorta(R.upd))+'.</p>';
 }
 var backfilled=false;
 function backfill(){if(backfilled||!S.config||!canWrite)return;backfilled=true;
