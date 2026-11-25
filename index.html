@@ -433,6 +433,41 @@ header.top #install{background:#FFFFFF;color:var(--band);border-color:#FFFFFF}
 .rk li b{font-variant-numeric:tabular-nums;white-space:nowrap}.rk li b small{color:var(--muted);font-weight:500}
 .rk li.me .rkname{font-weight:700;color:var(--accent)}
 .rkme{font-size:.88rem;color:var(--muted);border-top:1px solid var(--line);padding-top:6px}
+
+/* Wellness y RPE con color */
+.wsheet td.wv{font-weight:700;text-align:center;color:#1B2433}
+.wv.w1{background:#F8C9C6}.wv.w2{background:#FBD9B5}.wv.w3{background:#FCEBA8}.wv.w4{background:#D2EBB8}.wv.w5{background:#AEDCC0}
+.wsheet tr.alrt th{color:var(--warn)}
+.dotal{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--warn);margin-right:7px;vertical-align:middle}
+.atn{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--warn);border-radius:var(--r-lg);padding:14px 18px;display:flex;flex-direction:column;gap:8px}
+.atn.ok{border-left-color:#1E9E5A}
+.atn ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.atn li{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.atn li span{color:var(--muted)}
+.wq .qt{display:flex;align-items:center;gap:8px}
+.qi{font-size:1.35rem;line-height:1}
+.scale button{height:auto;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:1.05rem;border-width:2px;transition:transform .12s ease}
+.scale button .fc{font-size:1.45rem;line-height:1}
+.scale button.s1{border-color:#E5484D55}.scale button.s2{border-color:#F2994A66}.scale button.s3{border-color:#E9B90066}.scale button.s4{border-color:#7CB34266}.scale button.s5{border-color:#2E9E5B66}
+.scale button.s1[aria-pressed="true"]{background:#E5484D;border-color:#E5484D;color:#fff}
+.scale button.s2[aria-pressed="true"]{background:#F2994A;border-color:#F2994A;color:#1B1200}
+.scale button.s3[aria-pressed="true"]{background:#F2C94C;border-color:#F2C94C;color:#1B1600}
+.scale button.s4[aria-pressed="true"]{background:#7CB342;border-color:#7CB342;color:#0E1A04}
+.scale button.s5[aria-pressed="true"]{background:#2E9E5B;border-color:#2E9E5B;color:#fff}
+.scale button[aria-pressed="true"]{transform:scale(1.06)}
+@media (prefers-reduced-motion:reduce){.scale button{transition:none}.scale button[aria-pressed="true"]{transform:none}}
+.athbox{background:var(--surface);border-radius:var(--r-lg)}
+.rscale button.r0{border:2px solid hsl(130 70% 45% / .45)}.rscale button.r0[aria-pressed="true"]{background:hsl(130 72% 46%);border-color:hsl(130 72% 46%);color:#fff}
+.rscale button.r1{border:2px solid hsl(117 70% 45% / .45)}.rscale button.r1[aria-pressed="true"]{background:hsl(117 72% 46%);border-color:hsl(117 72% 46%);color:#fff}
+.rscale button.r2{border:2px solid hsl(104 70% 45% / .45)}.rscale button.r2[aria-pressed="true"]{background:hsl(104 72% 46%);border-color:hsl(104 72% 46%);color:#1B1600}
+.rscale button.r3{border:2px solid hsl(91 70% 45% / .45)}.rscale button.r3[aria-pressed="true"]{background:hsl(91 72% 46%);border-color:hsl(91 72% 46%);color:#1B1600}
+.rscale button.r4{border:2px solid hsl(78 70% 45% / .45)}.rscale button.r4[aria-pressed="true"]{background:hsl(78 72% 50%);border-color:hsl(78 72% 50%);color:#1B1600}
+.rscale button.r5{border:2px solid hsl(65 70% 45% / .45)}.rscale button.r5[aria-pressed="true"]{background:hsl(65 72% 50%);border-color:hsl(65 72% 50%);color:#1B1600}
+.rscale button.r6{border:2px solid hsl(52 70% 45% / .45)}.rscale button.r6[aria-pressed="true"]{background:hsl(52 72% 50%);border-color:hsl(52 72% 50%);color:#1B1600}
+.rscale button.r7{border:2px solid hsl(39 70% 45% / .45)}.rscale button.r7[aria-pressed="true"]{background:hsl(39 72% 50%);border-color:hsl(39 72% 50%);color:#1B1600}
+.rscale button.r8{border:2px solid hsl(26 70% 45% / .45)}.rscale button.r8[aria-pressed="true"]{background:hsl(26 72% 46%);border-color:hsl(26 72% 46%);color:#fff}
+.rscale button.r9{border:2px solid hsl(13 70% 45% / .45)}.rscale button.r9[aria-pressed="true"]{background:hsl(13 72% 46%);border-color:hsl(13 72% 46%);color:#fff}
+.rscale button.r10{border:2px solid hsl(0 70% 45% / .45)}.rscale button.r10[aria-pressed="true"]{background:hsl(0 72% 46%);border-color:hsl(0 72% 46%);color:#fff}
 /* Ingreso */
 .login{max-width:380px}
 #notice:has(.login){align-items:stretch;max-width:460px;padding:28px}
@@ -1512,7 +1547,16 @@ $("#notice").addEventListener("change",function(e){
 /* ---------- wellness ---------- */
 var WQ=[["sueno","Calidad del sueño","Muy mala","Muy buena"],["fatiga","Fatiga","Mucha","Nada"],["dolor","Dolor muscular","Mucho","Nada"],["estres","Estrés","Mucho","Nada"],["animo","Estado de ánimo","Muy bajo","Muy bueno"]];
 function wTotal(d){var t=0;for(var i=0;i<WQ.length;i++){var v=+d[WQ[i][0]];if(!(v>=1&&v<=5))return null;t+=v;}return t;}
-function wCell(v){v=+v;if(!(v>=1&&v<=5))return '<td>–</td>';return '<td'+(v<=2?' class="low"':'')+'>'+v+'</td>';}
+function wCell(v){v=+v;if(!(v>=1&&v<=5))return '<td class="muted">–</td>';return '<td class="wv w'+v+'">'+v+'</td>';}
+var WICO={sueno:"😴",fatiga:"🔋",dolor:"💪",estres:"🧠",animo:"😊"},WFACE=["","😣","🙁","😐","🙂","😄"];
+function wAlerts(r){
+  var a=[];if(r.state!=="ok")return a;var d=r.d,t=wTotal(d);
+  WQ.forEach(function(q){var v=+d[q[0]];if(v>=1&&v<=2)a.push(q[1]+" "+v);});
+  if(t!=null&&r.avg!=null&&t<=r.avg-3)a.push("total "+t+", "+num(Math.round((r.avg-t)*10)/10)+" menos que su promedio");
+  if((d.zonas||[]).length)a.push("dolor en "+d.zonas.join(", ").toLowerCase());
+  if(d.horas!=null&&d.horas!==""&&+d.horas<6)a.push("durmió "+num(d.horas)+" h");
+  return a;
+}
 var ZONAS=["Cuello","Hombro","Espalda alta","Lumbar","Cadera o ingle","Isquiotibial","Cuádriceps","Rodilla","Gemelo","Tobillo o pie","Otra"];
 function notaTxt(d){var z=(d.zonas||[]).join(", ");return (z?"Dolor en: "+z+". ":"")+(d.nota||"");}
 function fechaCorta(iso){var d=parseD(iso);return fmt(d,true);}
@@ -1748,12 +1792,21 @@ function renderWellness(){
     var falt=wl.rows.filter(function(r){return r.state==="pend";}).map(function(r){return (P[r.id]||{}).name||"Sin nombre";});
     h+='<div class="faltan'+(falt.length?'':' ok')+'"><b>'+ok+' de '+conMail+'</b> completaron el wellness del '+esc(fechaCorta(wl.date))+'.'+(conMail<wl.rows.length?' '+(wl.rows.length-conMail)+' no tienen mail cargado.':'')+
        (falt.length?'<br><b>Faltan:</b> <span id="wl-faltan">'+esc(falt.join(", "))+'</span> <button type="button" class="b" id="wl-copy" style="margin-left:6px">Copiar lista</button>':'')+'</div>';
-    h+='<div class="sheetwrap"><table class="sheet"><thead><tr><th scope="col">Jugadora</th>';
-    WQ.forEach(function(q){h+='<th scope="col">'+q[1]+'</th>';});
+    var al=wl.rows.map(function(r){return {r:r,a:wAlerts(r)};}).filter(function(x){return x.a.length;});
+    al.sort(function(x,y){return y.a.length-x.a.length;});
+    h+='<div class="atn'+(al.length?'':' ok')+'"><h3>'+(al.length?'Para atender hoy ('+al.length+')':'Nadie con alertas hoy')+'</h3>';
+    if(al.length){h+='<ul>';al.forEach(function(x){h+='<li><b>'+esc((P[x.r.id]||{}).name||"Sin nombre")+'</b><span>'+esc(x.a.join(" · "))+'</span></li>';});h+='</ul>';}
+    else if(ok)h+='<p class="small">Ninguna marcó 1 o 2, bajó mucho respecto de su promedio, durmió menos de 6 horas ni marcó dolor.</p>';
+    h+='</div>';
+    var rows=wl.rows.slice(),rank=function(r){var a=wAlerts(r).length,t=r.state==="ok"?wTotal(r.d):null;return r.state==="ok"?(a?-100+(-a*10)+(t||0)/100:(t==null?0:t/100)):r.state==="pend"?50:60;};
+    if(wl.ord!=="az")rows.sort(function(a,b){return rank(a)-rank(b);});
+    h+='<div class="wctl" style="align-items:center"><span class="small muted">Ordenar:</span><div class="wmode" role="group" aria-label="Orden"><button type="button" class="b" data-wo="atn" aria-pressed="'+(wl.ord!=="az")+'">Primero las que necesitan atención</button><button type="button" class="b" data-wo="az" aria-pressed="'+(wl.ord==="az")+'">Por nombre</button></div></div>';
+    h+='<div class="sheetwrap"><table class="sheet wsheet"><thead><tr><th scope="col">Jugadora</th>';
+    WQ.forEach(function(q){h+='<th scope="col">'+WICO[q[0]]+' '+q[1]+'</th>';});
     h+='<th scope="col">Horas de sueño</th><th scope="col">Total<small>de 25</small></th><th scope="col">Su promedio<small>28 días previos</small></th><th scope="col">Comentario</th><th scope="col">Gimnasio<small>RPE × min = carga</small></th><th scope="col">Hockey<small>RPE × min = carga</small></th><th scope="col" class="r">Carga<small>del día</small></th></tr></thead><tbody>';
-    wl.rows.forEach(function(r){
-      var pl=P[r.id]||{};
-      h+='<tr><th scope="row">'+esc(pl.name||"Sin nombre")+'</th>';
+    rows.forEach(function(r){
+      var pl=P[r.id]||{},na=wAlerts(r).length;
+      h+='<tr'+(na?' class="alrt"':'')+'><th scope="row">'+(na?'<span class="dotal" aria-label="Con alertas"></span>':'')+esc(pl.name||"Sin nombre")+'</th>';
       if(r.state==="ok"){
         var t=wTotal(r.d);WQ.forEach(function(q){h+=wCell(r.d[q[0]]);});
         h+='<td>'+(r.d.horas!=null?esc(num(r.d.horas)):"–")+'</td><td'+(t!=null&&r.avg!=null&&t<=r.avg-3?' class="low"':'')+'><b>'+(t==null?"–":t)+'</b></td><td>'+(r.avg==null?'<span class="muted">–</span>':num(Math.round(r.avg*10)/10))+'</td><td class="note">'+esc(notaTxt(r.d))+'</td>';
@@ -1764,7 +1817,14 @@ function renderWellness(){
       h+=rpeCell(r.g)+rpeCell(r.h)+'<td class="r">'+(cd?'<b>'+cd+'</b>':(wl.pres||{})[r.id]==="a"?'<span class="low">Ausente</span>':(wl.pres||{})[r.id]==="j"?'<span class="muted">Avisó</span>':'<span class="muted">–</span>')+'</td>';
       h+='</tr>';
     });
-    h+='</tbody></table></div><p class="small muted">Wellness: escala de 1 a 5, donde 5 es lo mejor (1 y 2 en rojo). El total aparece en rojo cuando está 3 puntos o más por debajo del promedio de esa jugadora en los 28 días previos (hace falta que tenga al menos 3 respuestas). Carga del entrenamiento: RPE (0 a 10) × minutos.</p>';
+    var okr=wl.rows.filter(function(r){return r.state==="ok";});
+    if(okr.length>=2){
+      h+='</tbody><tfoot><tr><th scope="row">Promedio del plantel</th>';
+      WQ.forEach(function(q){var v=okr.reduce(function(a,r){return a+(+r.d[q[0]]||0);},0)/okr.length;h+='<td class="wv w'+Math.max(1,Math.min(5,Math.round(v)))+'">'+num(Math.round(v*10)/10)+'</td>';});
+      var tt=okr.map(function(r){return wTotal(r.d);}).filter(function(v){return v!=null;});
+      h+='<td></td><td><b>'+(tt.length?num(Math.round(tt.reduce(function(a,b){return a+b;},0)/tt.length*10)/10):'–')+'</b></td><td colspan="5"></td></tr></tfoot>';
+    }else h+='</tbody>';
+    h+='</table></div><p class="small muted">Wellness: escala de 1 a 5, donde 5 es lo mejor. Colores: rojo 1, naranja 2, amarillo 3, verde claro 4, verde 5. El total aparece en rojo cuando está 3 puntos o más por debajo del promedio de esa jugadora en los 28 días previos (hace falta que tenga al menos 3 respuestas). Carga del entrenamiento: RPE (0 a 10) × minutos.</p>';
     el.innerHTML=h;
   }
   if(keep){var n=document.getElementById(keep);if(n)n.focus();}
@@ -1777,6 +1837,7 @@ $("#sec-wellness").addEventListener("click",function(e){
   var t=e.target;
   if(t.id==="wl-refresh")loadWellness(true);
   else if(t.dataset&&t.dataset.wm&&t.dataset.wm!==wl.mode){wl.mode=t.dataset.wm;loadWellness(false);}
+  else if(t.dataset&&t.dataset.wo){wl.ord=t.dataset.wo;renderWellness();}
   else if(t.id==="wl-copy"){
     var tx=$("#wl-faltan").textContent,done=function(){t.textContent="Copiada";};
     if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(tx).then(done,function(){});
@@ -1851,6 +1912,7 @@ $("#sec-asist").addEventListener("click",function(e){
 /* deportista: pantalla principal */
 var A={info:null,fecha:"",ans:{},done:false,edit:false,rpe:{},rt:"gimnasio",rv:null,rm:"",rmsg:"",pub:null,hw:null,hr:null};
 var RT=[["gimnasio","Gimnasio"],["hockey","Hockey"]];
+function rpeEmo(v){return v<=2?"😌":v<=4?"🙂":v<=6?"😅":v<=8?"😰":"🥵";}
 var RL=["Reposo","Muy muy fácil","Fácil","Moderado","Algo duro","Duro","Duro","Muy duro","Muy duro","Casi máximo","Máximo"];
 function selRpe(t){A.rt=t;var d=A.rpe[t];A.rv=d?d.rpe:null;A.rm=d&&d.min!=null?String(d.min):"";}
 function rpeHtml(){
@@ -1858,8 +1920,8 @@ function rpeHtml(){
   h+='<div class="rtype" role="group" aria-label="Tipo de entrenamiento">';
   RT.forEach(function(t){h+='<button type="button" data-rt="'+t[0]+'" aria-pressed="'+(A.rt===t[0])+'">'+t[1]+(A.rpe[t[0]]?' ✓':'')+'</button>';});
   h+='</div><div class="rscale" role="group" aria-label="Esfuerzo percibido de 0 a 10">';
-  for(var i=0;i<=10;i++)h+='<button type="button" data-rpe="'+i+'" aria-pressed="'+(A.rv===i)+'">'+i+'</button>';
-  h+='</div><div class="rlab" id="rpe-lab">'+(A.rv==null?'':A.rv+' · '+RL[A.rv])+'</div>'+
+  for(var i=0;i<=10;i++)h+='<button type="button" class="r'+i+'" data-rpe="'+i+'" aria-pressed="'+(A.rv===i)+'">'+i+'</button>';
+  h+='</div><div class="rlab" id="rpe-lab">'+(A.rv==null?'':rpeEmo(A.rv)+' '+A.rv+' · '+RL[A.rv])+'</div>'+
      '<label class="f" style="max-width:220px"><span>Duración en minutos</span><input type="text" inputmode="numeric" id="rpe-min" value="'+esc(A.rm)+'" placeholder="Por ejemplo 60"></label>'+
      '<span class="small low" id="rpe-err" role="alert">'+esc(A.rmsg)+'</span>'+
      '<div><button type="button" class="b pri" id="rpe-send" style="padding:12px 28px;font-size:1rem">'+(A.rpe[A.rt]?'Actualizar':'Enviar')+' RPE de '+(A.rt==="hockey"?'hockey':'gimnasio')+'</button></div>';
@@ -1999,8 +2061,8 @@ function renderAth(){
   }else{
     h+='<p class="muted">Respondé cómo estás hoy. 1 es lo peor y 5 lo mejor.</p>';
     WQ.forEach(function(q){
-      h+='<div class="wq"><span class="qt">'+q[1]+'</span><div class="scale" role="group" aria-label="'+q[1]+'">';
-      for(var i=1;i<=5;i++)h+='<button type="button" data-q="'+q[0]+'" data-v="'+i+'" aria-pressed="'+(+A.ans[q[0]]===i)+'">'+i+'</button>';
+      h+='<div class="wq"><span class="qt"><span class="qi" aria-hidden="true">'+WICO[q[0]]+'</span>'+q[1]+'</span><div class="scale" role="group" aria-label="'+q[1]+'">';
+      for(var i=1;i<=5;i++)h+='<button type="button" class="s'+i+'" data-q="'+q[0]+'" data-v="'+i+'" aria-pressed="'+(+A.ans[q[0]]===i)+'"><span class="fc" aria-hidden="true">'+WFACE[i]+'</span>'+i+'</button>';
       h+='</div><div class="ends"><span>'+q[2]+'</span><span>'+q[3]+'</span></div></div>';
     });
     h+='<div class="wq"><span class="qt">¿Dónde te duele? <span class="small muted" style="font-family:var(--body);font-weight:400">(opcional, podés marcar varias)</span></span><div class="zonas" role="group" aria-label="Zonas con dolor">';
@@ -2042,7 +2104,7 @@ $("#ath").addEventListener("click",function(e){
   else if(b.id==="ath-send")sendAth();
   else if(b.dataset.rt){selRpe(b.dataset.rt);A.rmsg="";renderAth();}
   else if(b.dataset.rpe!=null){
-    A.rv=+b.dataset.rpe;var er=$("#rpe-err");if(er)er.textContent="";var lb=$("#rpe-lab");if(lb)lb.textContent=A.rv+" · "+RL[A.rv];
+    A.rv=+b.dataset.rpe;var er=$("#rpe-err");if(er)er.textContent="";var lb=$("#rpe-lab");if(lb)lb.textContent=rpeEmo(A.rv)+" "+A.rv+" · "+RL[A.rv];
     [].forEach.call(b.parentNode.children,function(x){x.setAttribute("aria-pressed",String(x===b));});
   }else if(b.id==="rpe-send")sendRpe();
 });
